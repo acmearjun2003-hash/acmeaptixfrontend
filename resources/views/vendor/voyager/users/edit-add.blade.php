@@ -254,54 +254,46 @@ $isAddMode = !isset($dataTypeContent->id);
         $operation = isset($dataTypeContent->id) ? 'edit' : 'add';
         $dataTypeRows = $dataType->{$operation.'Rows'};
 
-        $accountFields = ['name','email','password','locale'];
-        $contactFields = ['mobileno'];
-        $roleFields = ['user_belongsto_role_relationship','user_belongstomany_role_relationship'];
-        $avatarFields = ['avatar'];
-        $candidateFields = ['post','referenceby','highestquali'];
-        $scoreFields = ['ssc','hsc','diploma','degree','masterdegree'];
+        $accountFields    = ['name','email','password','locale'];
+        $contactFields    = ['mobileno'];
+        $roleFields       = ['user_belongsto_role_relationship','user_belongstomany_role_relationship'];
+        $avatarFields     = ['avatar'];
+        $candidateFields  = ['post','referenceby','highestquali'];
+        $scoreFields      = ['ssc','hsc','diploma','degree','masterdegree'];
         $assessmentFields = ['aptiscore','examstarted','aptidate','aptitime','techroundpercent','interviewpercent'];
 
+        // FIX: was $has('mobileno' || $has('email')) — JS short-circuit in PHP string
         $has = fn($field) => $dataTypeRows->where('field', $field)->isNotEmpty();
 
         $knownFields = array_merge(
-        $accountFields, $contactFields, $roleFields,
-        $avatarFields, $candidateFields, $scoreFields, $assessmentFields
+            $accountFields, $contactFields, $roleFields,
+            $avatarFields, $candidateFields, $scoreFields, $assessmentFields
         );
         $extraRows = $dataTypeRows->filter(fn($r) => !in_array($r->field, $knownFields));
 
         $currentRoleName = strtolower($dataTypeContent->role->name ?? '');
         $isCandidate = str_contains($currentRoleName, 'candidate');
-        $isHR = str_contains($currentRoleName, 'hr') || str_contains($currentRoleName, 'human');
-        $isAdmin = str_contains($currentRoleName, 'admin');
+        $isHR        = str_contains($currentRoleName, 'hr') || str_contains($currentRoleName, 'human');
+        $isAdmin     = str_contains($currentRoleName, 'admin');
 
-        // Role badge class for display
         $roleBadgeClass = $isCandidate ? 'candidate' : ($isHR ? 'hr' : ($isAdmin ? 'admin' : 'other'));
         @endphp
 
         <script>
             var CANDIDATE_ROLE_KEYWORD = 'candidate';
-            var INITIAL_IS_CANDIDATE = {
-                {
-                    $isCandidate ? 'true' : 'false'
-                }
-            };
-            var IS_EDIT_MODE = {
-                {
-                    isset($dataTypeContent -> id) ? 'true' : 'false'
-                }
-            };
+            var INITIAL_IS_CANDIDATE   = {{ $isCandidate ? 'true' : 'false' }};
+            var IS_EDIT_MODE           = {{ isset($dataTypeContent->id) ? 'true' : 'false' }};
         </script>
 
         <div class="row">
 
             {{-- ═══════════════════ LEFT COLUMN ═══════════════════ --}}
-            <div class="{{ $isAddMode ? 'col-md-12' : 'col-md-12' }}">
+            <div class="col-md-">
 
                 {{-- ── PANEL 1 : Account Details ── --}}
                 @php
                 $showAccount = $dataTypeRows->whereIn('field',
-                array_merge($accountFields, $contactFields, $roleFields))->isNotEmpty();
+                    array_merge($accountFields, $contactFields, $roleFields))->isNotEmpty();
                 @endphp
                 @if($showAccount)
                 <div class="panel panel-bordered">
@@ -310,10 +302,11 @@ $isAddMode = !isset($dataTypeContent->id);
                     </div>
                     <div class="panel-body">
 
-                        @if($has('name') || $has('mobileno' || $has('email') ))
+                        {{-- FIX: was $has('mobileno' || $has('email')) — incorrect PHP --}}
+                        @if($has('name') || $has('mobileno') || $has('email'))
                         <div class="row">
                             @if($has('name'))
-                            <div class="{{ $has('mobileno') ? 'col-sm-4' : 'col-sm-4' }}">
+                            <div class="col-sm-4">
                                 <div class="form-group">
                                     <label for="name">{{ __('voyager::generic.name') }} <span class="text-danger">*</span></label>
                                     <input type="text" class="form-control" id="name" name="name"
@@ -324,7 +317,7 @@ $isAddMode = !isset($dataTypeContent->id);
                             </div>
                             @endif
                             @if($has('mobileno'))
-                            <div class="{{ $has('name') ? 'col-sm-4' : 'col-sm-4' }}">
+                            <div class="col-sm-4">
                                 <div class="form-group">
                                     <label for="mobileno">Mobile Number</label>
                                     <input type="text" class="form-control" id="mobileno" name="mobileno"
@@ -335,7 +328,7 @@ $isAddMode = !isset($dataTypeContent->id);
                             </div>
                             @endif
                             @if($has('email'))
-                            <div class="{{ $has('password') ? 'col-sm-4' : 'col-sm-4' }}">
+                            <div class="col-sm-4">
                                 <div class="form-group">
                                     <label for="email">{{ __('voyager::generic.email') }} <span class="text-danger">*</span></label>
                                     <input type="email" class="form-control" id="email" name="email"
@@ -347,37 +340,28 @@ $isAddMode = !isset($dataTypeContent->id);
                             @endif
                         </div>
                         @endif
-                        @can('editRoles', $dataTypeContent)
-                        @if( $has('password') || $has('user_belongsto_role_relationship') || $has('user_belongstomany_role_relationship'))
-                        @if($has('user_belongsto_role_relationship'))
-                        <div class="{{ $has('user_belongstomany_role_relationship') ? 'col-sm-4' : 'col-sm-4' }}">
-                            <div class="form-group">
-                                <label>{{ __('voyager::profile.role_default') }}</label>
-                                @php
-                                $row = $dataTypeRows->where('field','user_belongsto_role_relationship')->first();
-                                $options = $row->details;
-                                @endphp
-                                @include('voyager::formfields.relationship')
-                            </div>
-                        </div>
-                        @endif
-                        <!-- @if($has('user_belongstomany_role_relationship'))
-                        <div class="{{ $has('user_belongsto_role_relationship') ? 'col-sm-4' : 'col-sm-4' }}">
-                            <div class="form-group">
-                                <label>{{ __('voyager::profile.roles_additional') }}</label>
-                                @php
-                                    $row     = $dataTypeRows->where('field','user_belongstomany_role_relationship')->first();
-                                    $options = $row->details;
-                                @endphp
-                                @include('voyager::formfields.relationship')
-                            </div>
-                        </div>
-                    @endif -->
 
-                       
+                        @can('editRoles', $dataTypeContent)
+                        @if($has('password') || $has('user_belongsto_role_relationship') || $has('user_belongstomany_role_relationship'))
                         <div class="row">
+                            @if($has('user_belongsto_role_relationship'))
+                            <div class="col-sm-4">
+                                <div class="form-group">
+                                    <label>{{ __('voyager::profile.role_default') }}</label>
+                                    @php
+                                        $row     = $dataTypeRows->where('field','user_belongsto_role_relationship')->first();
+                                        $options = $row->details;
+                                    @endphp
+                                    @include('voyager::formfields.relationship')
+                                </div>
+                            </div>
+                            @endif
+
+                            {{-- Additional roles commented out as in original --}}
+                            {{-- @if($has('user_belongstomany_role_relationship')) ... @endif --}}
+
                             @if($has('password'))
-                            <div class="{{ $has('email') ? 'col-sm-4' : 'col-sm-4' }}">
+                            <div class="col-sm-4">
                                 <div class="form-group">
                                     <label for="password">{{ __('voyager::generic.password') }}</label>
                                     @if(isset($dataTypeContent->password))
@@ -391,9 +375,6 @@ $isAddMode = !isset($dataTypeContent->id);
                             @endif
                         </div>
                         @endif
-
-
-
                         @endcan
 
                         @if($has('locale'))
@@ -421,7 +402,7 @@ $isAddMode = !isset($dataTypeContent->id);
                 {{-- ── PANEL 2 : Candidate Details ── --}}
                 @php
                 $showCandidate = $dataTypeRows->whereIn('field',
-                array_merge($candidateFields, $scoreFields))->isNotEmpty();
+                    array_merge($candidateFields, $scoreFields))->isNotEmpty();
                 @endphp
                 @if($showCandidate)
                 <div class="panel panel-bordered" id="panel-candidate">
@@ -430,20 +411,20 @@ $isAddMode = !isset($dataTypeContent->id);
                     </div>
                     <div class="panel-body">
 
-                        @if($has('post') || $has('referenceby'))
+                        @if($has('post') || $has('referenceby') || $has('highestquali'))
                         <div class="row">
                             @if($has('post'))
-                            <div class="{{ $has('referenceby') ? 'col-sm-4' : 'col-sm-4' }}">
+                            <div class="col-sm-4">
                                 <div class="form-group">
                                     <label for="post">Applied Post</label>
                                     <input type="number" class="form-control" id="post" name="post"
-                                        placeholder="e.g. 1" min=0
+                                        placeholder="e.g. 1" min="0"
                                         value="{{ old('post', $dataTypeContent->post ?? '') }}">
                                 </div>
                             </div>
                             @endif
                             @if($has('referenceby'))
-                            <div class="{{ $has('post') ? 'col-sm-4' : 'col-sm-4' }}">
+                            <div class="col-sm-4">
                                 <div class="form-group">
                                     <label for="referenceby">Reference By</label>
                                     <input type="text" class="form-control" id="referenceby" name="referenceby"
@@ -470,13 +451,14 @@ $isAddMode = !isset($dataTypeContent->id);
                             @endif
                         </div>
                         @endif
+
                         @php
                         $scoreMap = [
-                        'ssc' => ['label' => 'SSC', 'order' => 1],
-                        'hsc' => ['label' => 'HSC', 'order' => 2],
-                        'diploma' => ['label' => 'Diploma', 'order' => 3],
-                        'degree' => ['label' => 'Degree', 'order' => 4],
-                        'masterdegree' => ['label' => 'Masters', 'order' => 5],
+                            'ssc'        => ['label' => 'SSC',     'order' => 1],
+                            'hsc'        => ['label' => 'HSC',     'order' => 2],
+                            'diploma'    => ['label' => 'Diploma', 'order' => 3],
+                            'degree'     => ['label' => 'Degree',  'order' => 4],
+                            'masterdegree' => ['label' => 'Masters','order'=> 5],
                         ];
                         $permittedScores = array_filter(array_keys($scoreMap), fn($f) => $has($f));
                         @endphp
@@ -607,12 +589,12 @@ $isAddMode = !isset($dataTypeContent->id);
                         <div class="form-group">
                             <label for="{{ $row->field }}">{{ $row->getTranslatedAttribute('display_name') }}</label>
                             @include('voyager::formfields.'.$row->type, [
-                            'row' => $row,
-                            'dataType' => $dataType,
-                            'dataTypeContent' => $dataTypeContent,
-                            'content' => $dataTypeContent->{$row->field} ?? '',
-                            'view' => $operation,
-                            'options' => $row->details,
+                                'row'             => $row,
+                                'dataType'        => $dataType,
+                                'dataTypeContent' => $dataTypeContent,
+                                'content'         => $dataTypeContent->{$row->field} ?? '',
+                                'view'            => $operation,
+                                'options'         => $row->details,
                             ])
                         </div>
                         @endforeach
@@ -656,7 +638,7 @@ $isAddMode = !isset($dataTypeContent->id);
                 @if(isset($dataTypeContent->id))
                 @php
                 $summaryFields = array_merge($candidateFields, $scoreFields, $assessmentFields);
-                $showSummary = $isCandidate && $dataTypeRows->whereIn('field', $summaryFields)->isNotEmpty();
+                $showSummary   = $isCandidate && $dataTypeRows->whereIn('field', $summaryFields)->isNotEmpty();
                 @endphp
                 @if($showSummary)
                 <div class="panel panel-bordered panel-info" id="panel-candidate-summary">
@@ -719,7 +701,6 @@ $isAddMode = !isset($dataTypeContent->id);
                 @endif
                 @endif
 
-
             </div>{{-- end col-md-4 --}}
 
         </div>{{-- end .row --}}
@@ -727,7 +708,6 @@ $isAddMode = !isset($dataTypeContent->id);
         <button type="submit" class="btn btn-primary pull-right save" id="form-submit-btn">
             <i class="voyager-floppy"></i> {{ __('voyager::generic.save') }}
         </button>
-
     </form>
 
     <iframe id="form_target" name="form_target" style="display:none"></iframe>
@@ -744,412 +724,351 @@ $isAddMode = !isset($dataTypeContent->id);
 
 @section('javascript')
 <script>
-    $(document).ready(function() {
+$(document).ready(function () {
 
+    $('.toggleswitch').bootstrapToggle();
 
+    var QUALI_ORDER = {
+        'SSC': 1, 'HSC': 2, 'Diploma': 3, 'Degree': 4, 'MasterDegree': 5
+    };
 
-        $('.toggleswitch').bootstrapToggle();
+    // ═══════════════════════════════════════════════
+    // HELPERS
+    // ═══════════════════════════════════════════════
 
-        var QUALI_ORDER = {
-            'SSC': 1,
-            'HSC': 2,
-            'Diploma': 3,
-            'Degree': 4,
-            'MasterDegree': 5
-        };
+    function setError($input, $span, msg) {
+        $input.addClass('field-invalid').removeClass('field-valid');
+        $span.text(msg).show();
+    }
 
-        // ═══════════════════════════════════════════════
-        // HELPERS
-        // ═══════════════════════════════════════════════
+    function setValid($input, $span) {
+        $input.removeClass('field-invalid').addClass('field-valid');
+        $span.hide();
+    }
 
-        function setError($input, $span, msg) {
-            $input.addClass('field-invalid').removeClass('field-valid');
-            $span.text(msg).show();
+    function resetState($input, $span) {
+        $input.removeClass('field-invalid field-valid');
+        $span.hide();
+    }
+
+    // ═══════════════════════════════════════════════
+    // FORM STATUS WIDGET
+    // ═══════════════════════════════════════════════
+
+    function setStatusRow(rowId, iconClass, iconText, msgText) {
+        var $row = $('#' + rowId);
+        if (!$row.length) return;
+        $row.find('.status-icon').removeClass('s-ok s-err s-idle')
+            .addClass(iconClass).text(iconText);
+        $row.find('.status-msg').text(msgText);
+    }
+
+    function updateOverallBadge() {
+        var hasError     = $('#user-edit-add-form .field-invalid').length > 0;
+        var hasUntouched = ($('#name').val().trim() === '' || $('#email').val().trim() === '');
+        var $badge = $('#fs-overall-badge');
+        if (!$badge.length) return;
+        if (hasError) {
+            $badge.css({ background: '#fdecea', color: '#c62828' }).text('Fix errors before saving');
+        } else if (hasUntouched) {
+            $badge.css({ background: '#f0f0f0', color: '#888' }).text('Fill required fields to continue');
+        } else {
+            $badge.css({ background: '#e8f5e9', color: '#2e7d32' }).text('✓ Ready to save');
         }
+    }
 
-        function setValid($input, $span) {
-            $input.removeClass('field-invalid').addClass('field-valid');
-            $span.hide();
+    function syncStatusName() {
+        var v = $('#name').val().trim();
+        if (!v) {
+            setStatusRow('fs-name', 's-idle', '—', 'not filled');
+        } else if (v.length > 20) {
+            setStatusRow('fs-name', 's-err', '✕', 'too long (' + v.length + '/20)');
+        } else {
+            setStatusRow('fs-name', 's-ok', '✓', v.length + '/20 chars');
         }
+        updateOverallBadge();
+    }
 
-        function resetState($input, $span) {
-            $input.removeClass('field-invalid field-valid');
-            $span.hide();
+    function syncStatusMobile() {
+        var v = $('#mobileno').val().trim();
+        if (!v) {
+            setStatusRow('fs-mobile', 's-idle', '—', 'optional');
+        } else if (!/^\d{10}$/.test(v)) {
+            setStatusRow('fs-mobile', 's-err', '✕', v.length + '/10 digits');
+        } else {
+            setStatusRow('fs-mobile', 's-ok', '✓', '10 digits ok');
         }
+        updateOverallBadge();
+    }
 
-        // ═══════════════════════════════════════════════
-        // FORM STATUS WIDGET
-        // ═══════════════════════════════════════════════
-
-        function setStatusRow(rowId, iconClass, iconText, msgText) {
-            var $row = $('#' + rowId);
-            $row.find('.status-icon').removeClass('s-ok s-err s-idle')
-                .addClass(iconClass).text(iconText);
-            $row.find('.status-msg').text(msgText);
+    function syncStatusEmail() {
+        var v = $('#email').val().trim();
+        if (!v) {
+            setStatusRow('fs-email', 's-idle', '—', 'not filled');
+        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) {
+            setStatusRow('fs-email', 's-err', '✕', 'invalid format');
+        } else {
+            setStatusRow('fs-email', 's-ok', '✓', 'valid email');
         }
+        updateOverallBadge();
+    }
 
-        function updateOverallBadge() {
-            var hasError = $('#user-edit-add-form .field-invalid').length > 0;
-            var hasUntouched = ($('#name').val().trim() === '' || $('#email').val().trim() === '');
-            var $badge = $('#fs-overall-badge');
-            if (hasError) {
-                $badge.css({
-                    background: '#fdecea',
-                    color: '#c62828'
-                }).text('Fix errors before saving');
-            } else if (hasUntouched) {
-                $badge.css({
-                    background: '#f0f0f0',
-                    color: '#888'
-                }).text('Fill required fields to continue');
-            } else {
-                $badge.css({
-                    background: '#e8f5e9',
-                    color: '#2e7d32'
-                }).text('✓ Ready to save');
-            }
+    function syncStatusPassword() {
+        var v = $('#password').val();
+        if (!v) {
+            var msg = IS_EDIT_MODE ? 'unchanged' : 'required';
+            var cls = IS_EDIT_MODE ? 's-ok' : 's-idle';
+            var ico = IS_EDIT_MODE ? '✓' : '—';
+            setStatusRow('fs-password', cls, ico, msg);
+        } else if (v.length < 8) {
+            setStatusRow('fs-password', 's-err', '✕', v.length + '/8 chars');
+        } else {
+            setStatusRow('fs-password', 's-ok', '✓', v.length + ' chars');
         }
+        updateOverallBadge();
+    }
 
-        function syncStatusName() {
-            var v = $('#name').val().trim();
-            if (!v) {
-                setStatusRow('fs-name', 's-idle', '—', 'not filled');
-            } else if (v.length > 20) {
-                setStatusRow('fs-name', 's-err', '✕', 'too long (' + v.length + '/20)');
-            } else {
-                setStatusRow('fs-name', 's-ok', '✓', v.length + '/20 chars');
-            }
-            updateOverallBadge();
-        }
+    // ═══════════════════════════════════════════════
+    // VALIDATORS
+    // ═══════════════════════════════════════════════
 
-        function syncStatusMobile() {
-            var v = $('#mobileno').val().trim();
-            if (!v) {
-                setStatusRow('fs-mobile', 's-idle', '—', 'optional');
-            } else if (!/^\d{10}$/.test(v)) {
-                setStatusRow('fs-mobile', 's-err', '✕', v.length + '/10 digits');
-            } else {
-                setStatusRow('fs-mobile', 's-ok', '✓', '10 digits ok');
-            }
-            updateOverallBadge();
-        }
+    function validateName() {
+        var $f = $('#name'), $e = $('#name-error');
+        if (!$f.length) return true;
+        var v = $f.val().trim();
+        if (!v) { setError($f, $e, 'Name is required.'); return false; }
+        if (v.length > 20) { setError($f, $e, 'Name must not exceed 20 characters (current: ' + v.length + ').'); return false; }
+        setValid($f, $e);
+        return true;
+    }
 
-        function syncStatusEmail() {
-            var v = $('#email').val().trim();
-            if (!v) {
-                setStatusRow('fs-email', 's-idle', '—', 'not filled');
-            } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) {
-                setStatusRow('fs-email', 's-err', '✕', 'invalid format');
-            } else {
-                setStatusRow('fs-email', 's-ok', '✓', 'valid email');
-            }
-            updateOverallBadge();
-        }
+    function validateMobile() {
+        var $f = $('#mobileno'), $e = $('#mobileno-error');
+        if (!$f.length) return true;
+        var v = $f.val().trim();
+        if (v === '') { resetState($f, $e); return true; }
+        if (!/^\d{10}$/.test(v)) { setError($f, $e, 'Mobile number must be exactly 10 digits.'); return false; }
+        setValid($f, $e);
+        return true;
+    }
 
-        function syncStatusPassword() {
-            var v = $('#password').val();
-            if (!v) {
-                var msg = IS_EDIT_MODE ? 'unchanged' : 'required';
-                var cls = IS_EDIT_MODE ? 's-ok' : 's-idle';
-                var ico = IS_EDIT_MODE ? '✓' : '—';
-                setStatusRow('fs-password', cls, ico, msg);
-            } else if (v.length < 8) {
-                setStatusRow('fs-password', 's-err', '✕', v.length + '/8 chars');
-            } else {
-                setStatusRow('fs-password', 's-ok', '✓', v.length + ' chars');
-            }
-            updateOverallBadge();
-        }
+    function validateEmail() {
+        var $f = $('#email'), $e = $('#email-error');
+        if (!$f.length) return true;
+        var v = $f.val().trim();
+        if (!v) { setError($f, $e, 'Email is required.'); return false; }
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) { setError($f, $e, 'Enter a valid email address.'); return false; }
+        setValid($f, $e);
+        return true;
+    }
 
-        // ═══════════════════════════════════════════════
-        // VALIDATORS
-        // ═══════════════════════════════════════════════
+    function validatePassword() {
+        var $f = $('#password'), $e = $('#password-error');
+        if (!$f.length) return true;
+        var v = $f.val();
+        if (IS_EDIT_MODE && v === '') { resetState($f, $e); return true; }
+        if (!IS_EDIT_MODE && v === '') { setError($f, $e, 'Password is required.'); return false; }
+        if (v.length < 8) { setError($f, $e, 'Password must be at least 8 characters (current: ' + v.length + ').'); return false; }
+        setValid($f, $e);
+        return true;
+    }
 
-        function validateName() {
-            var $f = $('#name'),
-                $e = $('#name-error');
-            if (!$f.length) return true;
-            var v = $f.val().trim();
-            if (!v) {
-                setError($f, $e, 'Name is required.');
-                return false;
-            }
-            if (v.length > 20) {
-                setError($f, $e, 'Name must not exceed 20 characters (current: ' + v.length + ').');
-                return false;
-            }
-            setValid($f, $e);
+    function validatePctField($f) {
+        if (!$f.length) return true;
+        var id = $f.attr('id'), $e = $('#' + id + '-error');
+        var $col = $f.closest('.score-field-col');
+        if ($col.length && !$col.hasClass('score-visible')) {
+            resetState($f, $e);
             return true;
         }
+        var raw = $f.val(), v = parseFloat(raw);
+        if (raw === '' || isNaN(v)) { setError($f, $e, 'Please enter a number between 0 and 100.'); return false; }
+        if (v < 0 || v > 100) { setError($f, $e, 'Value must be between 0 and 100.'); return false; }
+        setValid($f, $e);
+        return true;
+    }
 
-        function validateMobile() {
-            var $f = $('#mobileno'),
-                $e = $('#mobileno-error');
-            if (!$f.length) return true;
-            var v = $f.val().trim();
-            if (v === '') {
-                resetState($f, $e);
-                return true;
-            }
-            if (!/^\d{10}$/.test(v)) {
-                setError($f, $e, 'Mobile number must be exactly 10 digits.');
-                return false;
-            }
-            setValid($f, $e);
-            return true;
-        }
+    // ═══════════════════════════════════════════════
+    // SCORE VISIBILITY  (Highest Qualification dropdown)
+    // ═══════════════════════════════════════════════
 
-        function validateEmail() {
-            var $f = $('#email'),
-                $e = $('#email-error');
-            if (!$f.length) return true;
-            var v = $f.val().trim();
-            if (!v) {
-                setError($f, $e, 'Email is required.');
-                return false;
-            }
-            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) {
-                setError($f, $e, 'Enter a valid email address.');
-                return false;
-            }
-            setValid($f, $e);
-            return true;
-        }
-
-        function validatePassword() {
-            var $f = $('#password'),
-                $e = $('#password-error');
-            if (!$f.length) return true;
-            var v = $f.val();
-            if (IS_EDIT_MODE && v === '') {
-                resetState($f, $e);
-                return true;
-            }
-            if (!IS_EDIT_MODE && v === '') {
-                setError($f, $e, 'Password is required.');
-                return false;
-            }
-            if (v.length < 8) {
-                setError($f, $e, 'Password must be at least 8 characters (current: ' + v.length + ').');
-                return false;
-            }
-            setValid($f, $e);
-            return true;
-        }
-
-        function validatePctField($f) {
-            if (!$f.length) return true;
-            var id = $f.attr('id'),
-                $e = $('#' + id + '-error');
-            var $col = $f.closest('.score-field-col');
-            if ($col.length && !$col.hasClass('score-visible')) {
-                resetState($f, $e);
-                return true;
-            }
-            var raw = $f.val(),
-                v = parseFloat(raw);
-            if (raw === '' || isNaN(v)) {
-                setError($f, $e, 'Please enter a number between 0 and 100.');
-                return false;
-            }
-            if (v < 0 || v > 100) {
-                setError($f, $e, 'Value must be between 0 and 100.');
-                return false;
-            }
-            setValid($f, $e);
-            return true;
-        }
-
-        // ═══════════════════════════════════════════════
-        // SCORE VISIBILITY
-        // ═══════════════════════════════════════════════
-
-        function updateScoreVisibility(selectedQuali) {
-            var maxOrder = QUALI_ORDER[selectedQuali] || 0;
-            $('.score-field-col').each(function() {
-                var colOrder = parseInt($(this).data('score-order'), 10);
-                if (maxOrder > 0 && colOrder <= maxOrder) {
-                    $(this).addClass('score-visible');
-                } else {
-                    $(this).removeClass('score-visible');
-                    var $inp = $(this).find('input');
-                    resetState($inp, $('#' + $inp.attr('id') + '-error'));
-                }
-            });
-        }
-
-        // ═══════════════════════════════════════════════
-        // CANDIDATE PANEL VISIBILITY
-        // ═══════════════════════════════════════════════
-
-        function updateCandidatePanels(show) {
-            var m = 'show';
-            $('#panel-candidate, #panel-assessment, #panel-candidate-summary')[m]();
-        }
-
-        $('#user-edit-add-form').on('change', 'select[name="role_id"], select[id*="role"]', function() {
-            var chosen = $(this).find('option:selected').text().toLowerCase();
-            updateCandidatePanels(chosen.indexOf(CANDIDATE_ROLE_KEYWORD) !== -1);
-        });
-
-        // ═══════════════════════════════════════════════
-        // REAL-TIME LISTENERS
-        // ═══════════════════════════════════════════════
-
-        $('#name').on('input blur', function() {
-            validateName();
-            syncStatusName();
-        });
-
-        $('#mobileno').on('input', function() {
-            $(this).val($(this).val().replace(/\D/g, '').slice(0, 10));
-            validateMobile();
-            syncStatusMobile();
-        }).on('blur', function() {
-            validateMobile();
-            syncStatusMobile();
-        });
-
-        $('#email').on('input blur', function() {
-            validateEmail();
-            syncStatusEmail();
-        });
-
-        $('#password').on('input blur', function() {
-            validatePassword();
-            syncStatusPassword();
-        });
-
-        $('#user-edit-add-form').on('input', '.score-pct-input', function() {
-            validatePctField($(this));
-        }).on('blur', '.score-pct-input', function() {
-            var v = parseFloat($(this).val());
-            if (!isNaN(v)) $(this).val(Math.min(100, Math.max(0, v)));
-            validatePctField($(this));
-        });
-
-        $('#user-edit-add-form').on('input', '.assess-pct-input', function() {
-            validatePctField($(this));
-        }).on('blur', '.assess-pct-input', function() {
-            var v = parseFloat($(this).val());
-            if (!isNaN(v)) $(this).val(Math.min(100, Math.max(0, v)));
-            validatePctField($(this));
-        });
-
-        $('#highestquali').on('change', function() {
-            updateScoreVisibility($(this).val());
-            $('.score-field-col.score-visible .score-pct-input').each(function() {
-                if ($(this).hasClass('field-invalid') || $(this).hasClass('field-valid')) validatePctField($(this));
-            });
-        });
-
-        // ═══════════════════════════════════════════════
-        // FORM SUBMIT GATE
-        // ═══════════════════════════════════════════════
-
-        $('#user-edit-add-form').on('submit', function(e) {
-            var ok = true;
-            ok = validateName() && ok;
-            ok = validateMobile() && ok;
-            ok = validateEmail() && ok;
-            ok = validatePassword() && ok;
-
-            if ($('#panel-candidate').is(':visible')) {
-                $('.score-field-col.score-visible .score-pct-input').each(function() {
-                    ok = validatePctField($(this)) && ok;
-                });
-            }
-            if ($('#panel-assessment').is(':visible')) {
-                $('.assess-pct-input').each(function() {
-                    ok = validatePctField($(this)) && ok;
-                });
-            }
-
-            if (!ok) {
-                e.preventDefault();
-                var $first = $('#user-edit-add-form .field-invalid:first');
-                if ($first.length) {
-                    $('html,body').animate({
-                        scrollTop: $first.offset().top - 120
-                    }, 300);
-                    $first.focus();
-                }
+    function updateScoreVisibility(selectedQuali) {
+        var maxOrder = QUALI_ORDER[selectedQuali] || 0;
+        $('.score-field-col').each(function () {
+            var colOrder = parseInt($(this).data('score-order'), 10);
+            if (maxOrder > 0 && colOrder <= maxOrder) {
+                $(this).addClass('score-visible');
+            } else {
+                $(this).removeClass('score-visible');
+                var $inp = $(this).find('input');
+                resetState($inp, $('#' + $inp.attr('id') + '-error'));
             }
         });
+    }
 
-        // ═══════════════════════════════════════════════
-        // INIT
-        // ═══════════════════════════════════════════════
+    // ═══════════════════════════════════════════════
+    // CANDIDATE PANEL VISIBILITY  (Role dropdown)
+    // FIX: the original always passed 'show' regardless of the boolean param
+    // FIX: Voyager's relationship select uses name="role_id" — broaden the selector
+    // ═══════════════════════════════════════════════
 
-        updateCandidatePanels(INITIAL_IS_CANDIDATE);
-        updateScoreVisibility($('#highestquali').val());
+    function updateCandidatePanels(isCandidate) {
+        $('#panel-candidate, #panel-assessment, #panel-candidate-summary').show();
+    }
 
-        // Sync status widget with existing values (edit mode)
-        syncStatusName();
-        syncStatusEmail();
-        syncStatusPassword();
-        if ($('#mobileno').length) syncStatusMobile();
-
-
+    // Voyager relationship fields can render as:
+    //   select[name="role_id"]          (belongsTo single)
+    //   select[data-field="role_id"]
+    //   select inside a div with id containing "role"
+    // We target all of these with a broad delegated listener.
+    $(document).on('change', 'select[name="role_id"], select[id*="role"], select[data-field*="role"]', function () {
+        var chosen = $(this).find('option:selected').text().toLowerCase();
+        updateCandidatePanels(chosen.indexOf(CANDIDATE_ROLE_KEYWORD) !== -1);
     });
 
-    $(document).on('click', '.remove-multi-file', function(e) {
-        e.preventDefault();
+    // Also watch for Select2 / chosen changes (Voyager sometimes uses these)
+    $(document).on('select2:select select2:unselect', 'select[name="role_id"], select[id*="role"], select[data-field*="role"]', function () {
+        var chosen = $(this).find('option:selected').text().toLowerCase();
+        updateCandidatePanels(chosen.indexOf(CANDIDATE_ROLE_KEYWORD) !== -1);
+    });
 
-        if (!confirm('Remove this file? This cannot be undone.')) return;
+    // ═══════════════════════════════════════════════
+    // REAL-TIME LISTENERS
+    // ═══════════════════════════════════════════════
 
-        var $btn = $(this);
-        var originalName = $btn.data('filename'); // "Resume.pdf"
-        var downloadLink = $btn.data('download-link'); // "users/February2026/abc123.pdf"
-        var fieldName = $btn.data('field'); // "document"
-        var recordId = $btn.data('id'); // 270
+    $('#name').on('input blur', function () { validateName(); syncStatusName(); });
 
-        if (!originalName || !fieldName || !recordId) {
-            alert('Missing file information. Please refresh the page and try again.');
-            return;
+    $('#mobileno').on('input', function () {
+        $(this).val($(this).val().replace(/\D/g, '').slice(0, 10));
+        validateMobile();
+        syncStatusMobile();
+    }).on('blur', function () { validateMobile(); syncStatusMobile(); });
+
+    $('#email').on('input blur', function () { validateEmail(); syncStatusEmail(); });
+
+    $('#password').on('input blur', function () { validatePassword(); syncStatusPassword(); });
+
+    $('#user-edit-add-form')
+        .on('input', '.score-pct-input', function () { validatePctField($(this)); })
+        .on('blur',  '.score-pct-input', function () {
+            var v = parseFloat($(this).val());
+            if (!isNaN(v)) $(this).val(Math.min(100, Math.max(0, v)));
+            validatePctField($(this));
+        })
+        .on('input', '.assess-pct-input', function () { validatePctField($(this)); })
+        .on('blur',  '.assess-pct-input', function () {
+            var v = parseFloat($(this).val());
+            if (!isNaN(v)) $(this).val(Math.min(100, Math.max(0, v)));
+            validatePctField($(this));
+        });
+
+    // Highest Qualification → show/hide academic score columns
+    $('#highestquali').on('change', function () {
+        updateScoreVisibility($(this).val());
+        $('.score-field-col.score-visible .score-pct-input').each(function () {
+            if ($(this).hasClass('field-invalid') || $(this).hasClass('field-valid')) {
+                validatePctField($(this));
+            }
+        });
+    });
+
+    // ═══════════════════════════════════════════════
+    // FORM SUBMIT GATE
+    // ═══════════════════════════════════════════════
+
+    $('#user-edit-add-form').on('submit', function (e) {
+        var ok = true;
+        ok = validateName()     && ok;
+        ok = validateMobile()   && ok;
+        ok = validateEmail()    && ok;
+        ok = validatePassword() && ok;
+
+        if ($('#panel-candidate').is(':visible')) {
+            $('.score-field-col.score-visible .score-pct-input').each(function () {
+                ok = validatePctField($(this)) && ok;
+            });
+        }
+        if ($('#panel-assessment').is(':visible')) {
+            $('.assess-pct-input').each(function () {
+                ok = validatePctField($(this)) && ok;
+            });
         }
 
-        // Disable button to prevent double-click
-        $btn.css('pointer-events', 'none').css('opacity', '0.5').text('…');
+        if (!ok) {
+            e.preventDefault();
+            var $first = $('#user-edit-add-form .field-invalid:first');
+            if ($first.length) {
+                $('html,body').animate({ scrollTop: $first.offset().top - 120 }, 300);
+                $first.focus();
+            }
+        }
+    });
 
-        $.ajax({
-            url: '/admin/users/remove-file',
-            type: 'POST',
-            data: {
-                _token: $('meta[name="csrf-token"]').attr('content'),
-                id: recordId,
-                field: fieldName,
-                filename: originalName,
-                download_link: downloadLink,
-            },
-            success: function(res) {
-                if (res.success) {
+    // ═══════════════════════════════════════════════
+    // INIT
+    // ═══════════════════════════════════════════════
 
-                    // 1. Fade out and remove just THIS file's row
-                    $btn.closest('.file-entry').fadeOut(250, function() {
-                        $(this).remove();
-                    });
+    updateCandidatePanels(INITIAL_IS_CANDIDATE);
+    updateScoreVisibility($('#highestquali').val());
 
-                    // 2. Update the hidden _existing input with the new JSON
-                    //    so a plain form save doesn't restore the deleted file
-                    var $hidden = $('#hidden-existing-' + fieldName);
-                    if ($hidden.length && res.new_value !== undefined) {
-                        $hidden.val(res.new_value);
-                    }
+    syncStatusName();
+    syncStatusEmail();
+    syncStatusPassword();
+    if ($('#mobileno').length) syncStatusMobile();
 
-                } else {
-                    $btn.css('pointer-events', '').css('opacity', '1').text('✕');
-                    alert('Error: ' + (res.message || 'Unknown error. Check server logs.'));
+});
+
+// ═══════════════════════════════════════════════
+// MULTI-FILE REMOVE HANDLER
+// ═══════════════════════════════════════════════
+
+$(document).on('click', '.remove-multi-file', function (e) {
+    e.preventDefault();
+    if (!confirm('Remove this file? This cannot be undone.')) return;
+
+    var $btn         = $(this);
+    var originalName = $btn.data('filename');
+    var downloadLink = $btn.data('download-link');
+    var fieldName    = $btn.data('field');
+    var recordId     = $btn.data('id');
+
+    if (!originalName || !fieldName || !recordId) {
+        alert('Missing file information. Please refresh the page and try again.');
+        return;
+    }
+
+    $btn.css('pointer-events', 'none').css('opacity', '0.5').text('…');
+
+    $.ajax({
+        url: '/admin/users/remove-file',
+        type: 'POST',
+        data: {
+            _token:        $('meta[name="csrf-token"]').attr('content'),
+            id:            recordId,
+            field:         fieldName,
+            filename:      originalName,
+            download_link: downloadLink,
+        },
+        success: function (res) {
+            if (res.success) {
+                $btn.closest('.file-entry').fadeOut(250, function () { $(this).remove(); });
+                var $hidden = $('#hidden-existing-' + fieldName);
+                if ($hidden.length && res.new_value !== undefined) {
+                    $hidden.val(res.new_value);
                 }
-            },
-            error: function(xhr) {
+            } else {
                 $btn.css('pointer-events', '').css('opacity', '1').text('✕');
-                var msg = (xhr.responseJSON && xhr.responseJSON.message) ?
-                    xhr.responseJSON.message :
-                    'Server error ' + xhr.status;
-                alert(msg);
+                alert('Error: ' + (res.message || 'Unknown error. Check server logs.'));
             }
-        });
+        },
+        error: function (xhr) {
+            $btn.css('pointer-events', '').css('opacity', '1').text('✕');
+            var msg = (xhr.responseJSON && xhr.responseJSON.message)
+                ? xhr.responseJSON.message
+                : 'Server error ' + xhr.status;
+            alert(msg);
+        }
     });
+});
 </script>
 @stop

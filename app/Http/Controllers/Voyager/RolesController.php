@@ -1,6 +1,6 @@
 <?php
 
-namespace TCG\Voyager\Http\Controllers;
+namespace App\Http\Controllers\Voyager;
 
 use Exception;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -15,37 +15,19 @@ use TCG\Voyager\Events\BreadDataUpdated;
 use TCG\Voyager\Events\BreadImagesDeleted;
 use TCG\Voyager\Facades\Voyager;
 use TCG\Voyager\Http\Controllers\Traits\BreadRelationshipParser;
+use TCG\Voyager\Http\Controllers\VoyagerBaseController;
 
-class StudentController extends VoyagerBaseController
+class RolesController extends VoyagerBaseController
 {
     use BreadRelationshipParser;
-
-    //***************************************
-    //               ____
-    //              |  _ \
-    //              | |_) |
-    //              |  _ <
-    //              | |_) |
-    //              |____/
-    //
-    //      Browse our Data Type (B)READ
-    //
-    //****************************************
+    
 
 
 
-    public function index(Request $request)
+
+
+      public function index(Request $request)
     {
-        $response  = Http::post('http://localhost:8001/api/user');
-        if($response->successful())
-        {
-            return response()->json([
-                'status' => true,
-                'message' => "Data fetched",
-                'data' => $response
-
-            ]);
-        }
         // GET THE SLUG, ex. 'posts', 'pages', etc.
         $slug = $this->getSlug($request);
 
@@ -75,14 +57,14 @@ class StudentController extends VoyagerBaseController
         if (strlen($dataType->model_name) != 0) {
             $model = app($dataType->model_name);
 
-            $query = $model::select($dataType->name.'.*');
+            $query = $model::select($dataType->name . '.*');
 
-            if ($dataType->scope && $dataType->scope != '' && method_exists($model, 'scope'.ucfirst($dataType->scope))) {
+            if ($dataType->scope && $dataType->scope != '' && method_exists($model, 'scope' . ucfirst($dataType->scope))) {
                 $query->{$dataType->scope}();
             }
 
             // Use withTrashed() if model uses SoftDeletes and if toggle is selected
-            if ($model && in_array(SoftDeletes::class, class_uses_recursive($model))) {
+            if ($model && in_array(SoftDeletes::class, class_uses_recursive($model)) && Auth::user()->can('delete', app($dataType->model_name))) {
                 $usesSoftDeletes = true;
 
                 if ($request->get('showSoftDeleted')) {
@@ -96,9 +78,9 @@ class StudentController extends VoyagerBaseController
 
             if ($search->value != '' && $search->key && $search->filter) {
                 $search_filter = ($search->filter == 'equals') ? '=' : 'LIKE';
-                $search_value = ($search->filter == 'equals') ? $search->value : '%'.$search->value.'%';
+                $search_value = ($search->filter == 'equals') ? $search->value : '%' . $search->value . '%';
 
-                $searchField = $dataType->name.'.'.$search->key;
+                $searchField = $dataType->name . '.' . $search->key;
                 if ($row = $this->findSearchableRelationshipRow($dataType->rows->where('type', 'relationship'), $search->key)) {
                     $query->whereIn(
                         $searchField,
@@ -116,12 +98,12 @@ class StudentController extends VoyagerBaseController
                 $querySortOrder = (!empty($sortOrder)) ? $sortOrder : 'desc';
                 if (!empty($row)) {
                     $query->select([
-                        $dataType->name.'.*',
-                        'joined.'.$row->details->label.' as '.$orderBy,
+                        $dataType->name . '.*',
+                        'joined.' . $row->details->label . ' as ' . $orderBy,
                     ])->leftJoin(
-                        $row->details->table.' as joined',
-                        $dataType->name.'.'.$row->details->column,
-                        'joined.'.$row->details->key
+                        $row->details->table . ' as joined',
+                        $dataType->name . '.' . $row->details->column,
+                        'joined.' . $row->details->key
                     );
                 }
 
@@ -137,11 +119,26 @@ class StudentController extends VoyagerBaseController
 
             // Replace relationships' keys for labels and create READ links if a slug is provided.
             $dataTypeContent = $this->resolveRelations($dataTypeContent, $dataType);
+
+            //using API for fetching user data
+            $response = Http::get("http://localhost:8001/api/roles");
+            $responseData = $response->json();
+
+
+            $dataTypeContent = collect($responseData)->map(function ($item) use ($model) {
+                $instance = $model->newInstance();
+                $instance->setRawAttributes((array) $item, true); // ← fill with $item data
+                $instance->exists = true;                          // ← mark as existing DB record
+                return $instance;
+            });
+            // dd($dataTypeContent);
+
         } else {
             // If Model doesn't exist, get data from table name
             $dataTypeContent = call_user_func([DB::table($dataType->name), $getter]);
             $model = false;
         }
+
 
         // Check if BREAD is Translatable
         $isModelTranslatable = is_bread_translatable($model);
@@ -156,10 +153,26 @@ class StudentController extends VoyagerBaseController
         $defaultSearchKey = $dataType->default_search_key ?? null;
 
         // Actions
+        // $actions = [];
+        // if (!empty($dataTypeContent->first())) {
+        //     foreach (Voyager::actions() as $action) {
+        //         $action = new $action($dataType, $dataTypeContent->first());
+
+        //         if ($action->shouldActionDisplayOnDataType()) {
+        //             $actions[] = $action;
+        //         }
+        //     }
+        // }
+
         $actions = [];
-        if (!empty($dataTypeContent->first())) {
+        if (!empty($dataTypeContent)) {
             foreach (Voyager::actions() as $action) {
-                $action = new $action($dataType, $dataTypeContent->first());
+                // Only include the Edit action
+                if (!str_ends_with($action, 'EditAction')) {
+                    continue;
+                }
+
+                $action = new $action($dataType, $dataTypeContent);
 
                 if ($action->shouldActionDisplayOnDataType()) {
                     $actions[] = $action;
@@ -167,24 +180,35 @@ class StudentController extends VoyagerBaseController
             }
         }
 
-       
+        // Define showCheckboxColumn
+        $showCheckboxColumn = false;
+        if (Auth::user()->can('delete', app($dataType->model_name))) {
+            $showCheckboxColumn = true;
+        } else {
+            foreach ($actions as $action) {
+                if (method_exists($action, 'massAction')) {
+                    $showCheckboxColumn = true;
+                }
+            }
+        }
 
         // Define orderColumn
         $orderColumn = [];
         if ($orderBy) {
-            $index = $dataType->browseRows->where('field', $orderBy)->keys()->first();
+            $index = $dataType->browseRows->where('field', $orderBy)->keys()->first() + ($showCheckboxColumn ? 1 : 0);
             $orderColumn = [[$index, $sortOrder ?? 'desc']];
         }
 
         // Define list of columns that can be sorted server side
         $sortableColumns = $this->getSortableColumns($dataType->browseRows);
-
+        $showCheckboxColumn = false;
         $view = 'voyager::bread.browse';
 
         if (view()->exists("voyager::$slug.browse")) {
             $view = "voyager::$slug.browse";
         }
 
+        $showCheckboxColumn = false;
         return Voyager::view($view, compact(
             'actions',
             'dataType',
@@ -298,6 +322,14 @@ class StudentController extends VoyagerBaseController
                 $query = $query->{$dataType->scope}();
             }
             $dataTypeContent = call_user_func([$query, 'findOrFail'], $id);
+
+             $response = Http::get("http://localhost:8001/api/roles/$id");
+            return $responseData = $response->json();
+
+            $dataTypeContent = $model->newInstance();
+            $dataTypeContent->setRawAttributes($responseData, true);
+            $dataTypeContent->exists = true;
+
         } else {
             // If Model doest exist, get data from table name
             $dataTypeContent = DB::table($dataType->name)->where('id', $id)->first();

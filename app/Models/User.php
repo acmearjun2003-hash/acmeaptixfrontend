@@ -28,6 +28,10 @@ class User extends \TCG\Voyager\Models\User
         'interviewpercent'   => 'decimal:2',
     ];
 
+    protected $attributes = [
+    'post' => null,
+    ];
+    
     // users.role_id → roles.id
     public function role()
     {
@@ -35,21 +39,21 @@ class User extends \TCG\Voyager\Models\User
     }
 
     // users.post → post_master.post_id
-    public function postDetail()
+    public function post()
     {
         return $this->belongsTo(Post::class, 'post', 'post_id');
     }
 
-    // one user can have many exam sessions
-    public function exams()
-    {
-        return $this->hasMany(ExamMaster::class, 'CANDIDATEID', 'id');
-    }
+    // // one user can have many exam sessions
+    // public function exams()
+    // {
+    //     return $this->hasMany(ExamMaster::class, 'CANDIDATEID', 'id');
+    // }
 
-    // shortcut: all exam answer rows for this candidate
-    public function examDetails()
-    {
-        return $this->hasMany(ExamDetail::class, 'CANDIDATEID', 'id');
-    }
+    // // shortcut: all exam answer rows for this candidate
+    // public function examDetails()
+    // {
+    //     return $this->hasMany(ExamDetail::class, 'CANDIDATEID', 'id');
+    // }
 
 }
