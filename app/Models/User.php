@@ -13,10 +13,28 @@ class User extends \TCG\Voyager\Models\User
     protected $table = 'users';
 
     protected $fillable = [
-        'role_id', 'name', 'email', 'mobileno', 'password',
-        'highestquali', 'ssc', 'hsc', 'diploma', 'degree',
-        'masterdegree', 'aptiscore', 'referenceby', 'post',
-        'techroundpercent', 'interviewpercent',
+        'role_id',
+        'name',
+        'email',
+        'mobileno',
+        'password',
+        'avatar',
+        'document',
+        'settings',
+        'highestquali',
+        'ssc',
+        'hsc',
+        'diploma',
+        'degree',
+        'masterdegree',
+        'aptiscore',
+        'examstarted',
+        'aptidate',
+        'aptitime',
+        'referenceby',
+        'post',
+        'techroundpercent',
+        'interviewpercent',
     ];
 
     protected $hidden = ['password', 'remember_token'];

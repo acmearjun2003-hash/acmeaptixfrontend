@@ -17,12 +17,12 @@ class PostsController extends VoyagerBaseController
 {
     use BreadRelationshipParser;
 
-   
+
     // =========================================================================
     //  B — BROWSE
     // =========================================================================
 
-      public function index(Request $request)
+    public function index(Request $request)
     {
         // GET THE SLUG, ex. 'posts', 'pages', etc.
         $slug = $this->getSlug($request);
@@ -262,42 +262,74 @@ class PostsController extends VoyagerBaseController
     //  E — EDIT (GET)
     // =========================================================================
 
-    // public function edit(Request $request, $id)
-    // {
-    //     $slug     = $this->getSlug($request);
-    //     $dataType = Voyager::model('DataType')->where('slug', '=', $slug)->first();
 
-    //     $this->authorize('edit', app($dataType->model_name));
+    public function edit(Request $request, $id)
+    {
+        $slug = $this->getSlug($request);
 
-    //     // ── Fetch single role from API ────────────────────────────────────
-    //     $response = $this->api()->get("/posts/{$id}");
 
-    //     if ($response->failed()) {
-    //         return back()->with([
-    //             'message'    => "Role #{$id} not found (API returned {$response->status()}).",
-    //             'alert-type' => 'error',
-    //         ]);
-    //     }
+        $dataType = Voyager::model('DataType')->where('slug', '=', $slug)->first();
 
-    //     // Hydrate the API response with the permissions collection that
-    //     // Voyager's posts/edit-add.blade.php requires.
-    //     $dataTypeContent = $this->hydrateRoleObject($response->json());
 
-    //     // Voyager uses col_width from editRows details
-    //     foreach ($dataType->editRows as $key => $row) {
-    //         $dataType->editRows[$key]['col_width'] = $row->details->width ?? 100;
-    //     }
+        if (strlen($dataType->model_name) != 0) {
+            $model = app($dataType->model_name);
+            $query = $model->query();
 
-    //     $isModelTranslatable = false;
 
-    //     $view = $this->resolveView($slug, 'edit-add');
+            // Use withTrashed() if model uses SoftDeletes and if toggle is selected
+            if ($model && in_array(SoftDeletes::class, class_uses_recursive($model))) {
+                $query = $query->withTrashed();
+            }
+            if ($dataType->scope && $dataType->scope != '' && method_exists($model, 'scope' . ucfirst($dataType->scope))) {
+                $query = $query->{$dataType->scope}();
+            }
 
-    //     return Voyager::view($view, compact(
-    //         'dataType',
-    //         'dataTypeContent',
-    //         'isModelTranslatable'
-    //     ));
-    // }
+
+            //   $dataTypeContent = call_user_func([$query, 'findOrFail'], $id);
+            $response = Http::get("http://localhost:8001/api/posts/$id");
+            $responseData = $response->json();
+
+
+            $dataTypeContent = $model->newInstance();
+            $dataTypeContent->setRawAttributes($responseData, true);
+            $dataTypeContent->exists = true;
+        } else {
+            // If Model doest exist, get data from table name
+            $dataTypeContent = DB::table($dataType->name)->where('id', $id)->first();
+        }
+
+
+        foreach ($dataType->editRows as $key => $row) {
+            $dataType->editRows[$key]['col_width'] = isset($row->details->width) ? $row->details->width : 100;
+        }
+
+
+        // If a column has a relationship associated with it, we do not want to show that field
+        $this->removeRelationshipField($dataType, 'edit');
+
+
+        // Check permission
+        $this->authorize('edit', $dataTypeContent);
+
+
+        // Check if BREAD is Translatable
+        $isModelTranslatable = is_bread_translatable($dataTypeContent);
+
+
+        // Eagerload Relations
+        $this->eagerLoadRelations($dataTypeContent, $dataType, 'edit', $isModelTranslatable);
+
+
+        $view = 'voyager::bread.edit-add';
+
+
+        if (view()->exists("voyager::$slug.edit-add")) {
+            $view = "voyager::$slug.edit-add";
+        }
+
+
+        return Voyager::view($view, compact('dataType', 'dataTypeContent', 'isModelTranslatable'));
+    }
 
     // =========================================================================
     //  E — UPDATE (PUT/PATCH)
@@ -312,7 +344,7 @@ class PostsController extends VoyagerBaseController
 
         // ── Validate via Voyager rules ────────────────────────────────────
         $this->validateBread($request->all(), $dataType->editRows, $dataType->name, $id)
-             ->validate();
+            ->validate();
 
         // ── Collect fields defined in editRows ────────────────────────────
         $payload = $this->buildPayload($request, $dataType->editRows);
@@ -770,7 +802,7 @@ class PostsController extends VoyagerBaseController
         );
     }
 
-     /** Base URL of the external API server */
+    /** Base URL of the external API server */
     private const API_BASE = 'http://localhost:8001/api';
 
     // =========================================================================
@@ -784,8 +816,8 @@ class PostsController extends VoyagerBaseController
     private function api(): \Illuminate\Http\Client\PendingRequest
     {
         return Http::baseUrl(self::API_BASE)
-                   ->acceptJson()
-                   ->timeout(15);
+            ->acceptJson()
+            ->timeout(15);
     }
 
     /**
@@ -859,5 +891,4 @@ class PostsController extends VoyagerBaseController
         $custom = "voyager::$slug.$type";
         return view()->exists($custom) ? $custom : "voyager::bread.$type";
     }
-
 }

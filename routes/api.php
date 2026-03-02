@@ -1,8 +1,9 @@
 <?php
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\Api\PostController;
-use App\Http\Controllers\Api\RoleController;
+use App\Http\Controllers\Api\CustomerController;
+use App\Http\Controllers\Voyager\CustomerController as VoyagerCustomerController;
+
 /*
 |--------------------------------------------------------------------------
 | API Routes
@@ -17,3 +18,4 @@ use App\Http\Controllers\Api\RoleController;
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
 });
+

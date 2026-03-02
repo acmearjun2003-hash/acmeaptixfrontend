@@ -20,13 +20,269 @@ use TCG\Voyager\Http\Controllers\VoyagerBaseController;
 class RolesController extends VoyagerBaseController
 {
     use BreadRelationshipParser;
+
+    private function extractPermissionIds(Request $request): array
+    {
+        // Voyager relationship fields for permissions are not always named `permissions`.
+        // Try the common name first, then fall back to any request key containing "permission".
+        $raw = $request->input('permissions');
+
+        if (is_array($raw)) {
+            return array_values(array_filter(array_map('intval', $raw)));
+        }
+
+        foreach ($request->all() as $key => $value) {
+            if (!is_string($key) || stripos($key, 'permission') === false) {
+                continue;
+            }
+            if (!is_array($value)) {
+                continue;
+            }
+
+            $ids = array_values(array_filter(array_map('intval', $value)));
+            if (!empty($ids)) {
+                return $ids;
+            }
+        }
+
+        return [];
+    }
+
+    private function syncPermissionsIfPresent(Request $request, $role): void
+    {
+        if (!is_object($role) || !method_exists($role, 'permissions')) {
+            return;
+        }
+
+        // Only sync if the request actually contains a permission field;
+        // otherwise we risk wiping permissions on unrelated updates.
+        $hasPermissionField = $request->has('permissions');
+        if (!$hasPermissionField) {
+            foreach (array_keys($request->all()) as $k) {
+                if (is_string($k) && stripos($k, 'permission') !== false && is_array($request->input($k))) {
+                    $hasPermissionField = true;
+                    break;
+                }
+            }
+        }
+
+        if (!$hasPermissionField) {
+            return;
+        }
+
+        $permissionIds = $this->extractPermissionIds($request);
+        $role->permissions()->sync($permissionIds);
+    }
     
 
 
 
 
 
-      public function index(Request $request)
+    //   public function index(Request $request)
+    // {
+    //     // GET THE SLUG, ex. 'posts', 'pages', etc.
+    //     $slug = $this->getSlug($request);
+
+    //     // GET THE DataType based on the slug
+    //     $dataType = Voyager::model('DataType')->where('slug', '=', $slug)->first();
+
+    //     // Check permission
+    //     $this->authorize('browse', app($dataType->model_name));
+
+    //     $getter = $dataType->server_side ? 'paginate' : 'get';
+
+    //     $search = (object) ['value' => $request->get('s'), 'key' => $request->get('key'), 'filter' => $request->get('filter')];
+
+    //     $searchNames = [];
+    //     if ($dataType->server_side) {
+    //         $searchNames = $dataType->browseRows->mapWithKeys(function ($row) {
+    //             return [$row['field'] => $row->getTranslatedAttribute('display_name')];
+    //         });
+    //     }
+
+    //     $orderBy = $request->get('order_by', $dataType->order_column);
+    //     $sortOrder = $request->get('sort_order', $dataType->order_direction);
+    //     $usesSoftDeletes = false;
+    //     $showSoftDeleted = false;
+
+    //     // Next Get or Paginate the actual content from the MODEL that corresponds to the slug DataType
+    //     if (strlen($dataType->model_name) != 0) {
+    //         $model = app($dataType->model_name);
+
+    //         $query = $model::select($dataType->name . '.*');
+
+    //         if ($dataType->scope && $dataType->scope != '' && method_exists($model, 'scope' . ucfirst($dataType->scope))) {
+    //             $query->{$dataType->scope}();
+    //         }
+
+    //         // Use withTrashed() if model uses SoftDeletes and if toggle is selected
+    //         if ($model && in_array(SoftDeletes::class, class_uses_recursive($model)) && Auth::user()->can('delete', app($dataType->model_name))) {
+    //             $usesSoftDeletes = true;
+
+    //             if ($request->get('showSoftDeleted')) {
+    //                 $showSoftDeleted = true;
+    //                 $query = $query->withTrashed();
+    //             }
+    //         }
+
+    //         // If a column has a relationship associated with it, we do not want to show that field
+    //         $this->removeRelationshipField($dataType, 'browse');
+
+    //         if ($search->value != '' && $search->key && $search->filter) {
+    //             $search_filter = ($search->filter == 'equals') ? '=' : 'LIKE';
+    //             $search_value = ($search->filter == 'equals') ? $search->value : '%' . $search->value . '%';
+
+    //             $searchField = $dataType->name . '.' . $search->key;
+    //             if ($row = $this->findSearchableRelationshipRow($dataType->rows->where('type', 'relationship'), $search->key)) {
+    //                 $query->whereIn(
+    //                     $searchField,
+    //                     $row->details->model::where($row->details->label, $search_filter, $search_value)->pluck('id')->toArray()
+    //                 );
+    //             } else {
+    //                 if ($dataType->browseRows->pluck('field')->contains($search->key)) {
+    //                     $query->where($searchField, $search_filter, $search_value);
+    //                 }
+    //             }
+    //         }
+
+    //         $row = $dataType->rows->where('field', $orderBy)->firstWhere('type', 'relationship');
+    //         if ($orderBy && (in_array($orderBy, $dataType->fields()) || !empty($row))) {
+    //             $querySortOrder = (!empty($sortOrder)) ? $sortOrder : 'desc';
+    //             if (!empty($row)) {
+    //                 $query->select([
+    //                     $dataType->name . '.*',
+    //                     'joined.' . $row->details->label . ' as ' . $orderBy,
+    //                 ])->leftJoin(
+    //                     $row->details->table . ' as joined',
+    //                     $dataType->name . '.' . $row->details->column,
+    //                     'joined.' . $row->details->key
+    //                 );
+    //             }
+
+    //             $dataTypeContent = call_user_func([
+    //                 $query->orderBy($orderBy, $querySortOrder),
+    //                 $getter,
+    //             ]);
+    //         } elseif ($model->timestamps) {
+    //             $dataTypeContent = call_user_func([$query->latest($model::CREATED_AT), $getter]);
+    //         } else {
+    //             $dataTypeContent = call_user_func([$query->orderBy($model->getKeyName(), 'DESC'), $getter]);
+    //         }
+
+    //         // Replace relationships' keys for labels and create READ links if a slug is provided.
+    //         // $dataTypeContent = $this->resolveRelations($dataTypeContent, $dataType);
+
+    //         //using API for fetching user data
+    //         $response = Http::get("http://localhost:8001/api/roles");
+    //         $responseData = $response->json();
+
+
+    //         $dataTypeContent = collect($responseData)->map(function ($item) use ($model) {
+    //             $instance = $model->newInstance();
+    //             $instance->setRawAttributes((array) $item, true); // ← fill with $item data
+    //             $instance->exists = true;                          // ← mark as existing DB record
+    //             return $instance;
+    //         });
+    //         // dd($dataTypeContent);
+
+    //     } else {
+    //         // If Model doesn't exist, get data from table name
+    //         $dataTypeContent = call_user_func([DB::table($dataType->name), $getter]);
+    //         $model = false;
+    //     }
+
+
+    //     // Check if BREAD is Translatable
+    //     $isModelTranslatable = is_bread_translatable($model);
+
+    //     // Eagerload Relations
+    //     $this->eagerLoadRelations($dataTypeContent, $dataType, 'browse', $isModelTranslatable);
+
+    //     // Check if server side pagination is enabled
+    //     $isServerSide = isset($dataType->server_side) && $dataType->server_side;
+
+    //     // Check if a default search key is set
+    //     $defaultSearchKey = $dataType->default_search_key ?? null;
+
+    //     // Actions
+    //     // $actions = [];
+    //     // if (!empty($dataTypeContent->first())) {
+    //     //     foreach (Voyager::actions() as $action) {
+    //     //         $action = new $action($dataType, $dataTypeContent->first());
+
+    //     //         if ($action->shouldActionDisplayOnDataType()) {
+    //     //             $actions[] = $action;
+    //     //         }
+    //     //     }
+    //     // }
+
+    //     $actions = [];
+    //     if (!empty($dataTypeContent)) {
+    //         foreach (Voyager::actions() as $action) {
+    //             // Only include the Edit action
+    //             if (!str_ends_with($action, 'EditAction')) {
+    //                 continue;
+    //             }
+
+    //             $action = new $action($dataType, $dataTypeContent);
+
+    //             if ($action->shouldActionDisplayOnDataType()) {
+    //                 $actions[] = $action;
+    //             }
+    //         }
+    //     }
+
+    //     // Define showCheckboxColumn
+    //     $showCheckboxColumn = false;
+    //     if (Auth::user()->can('delete', app($dataType->model_name))) {
+    //         $showCheckboxColumn = true;
+    //     } else {
+    //         foreach ($actions as $action) {
+    //             if (method_exists($action, 'massAction')) {
+    //                 $showCheckboxColumn = true;
+    //             }
+    //         }
+    //     }
+
+    //     // Define orderColumn
+    //     $orderColumn = [];
+    //     if ($orderBy) {
+    //         $index = $dataType->browseRows->where('field', $orderBy)->keys()->first() + ($showCheckboxColumn ? 1 : 0);
+    //         $orderColumn = [[$index, $sortOrder ?? 'desc']];
+    //     }
+
+    //     // Define list of columns that can be sorted server side
+    //     $sortableColumns = $this->getSortableColumns($dataType->browseRows);
+    //     $showCheckboxColumn = false;
+    //     $view = 'voyager::bread.browse';
+
+    //     if (view()->exists("voyager::$slug.browse")) {
+    //         $view = "voyager::$slug.browse";
+    //     }
+
+    //     $showCheckboxColumn = false;
+    //     return Voyager::view($view, compact(
+    //         'actions',
+    //         'dataType',
+    //         'dataTypeContent',
+    //         'isModelTranslatable',
+    //         'search',
+    //         'orderBy',
+    //         'orderColumn',
+    //         'sortableColumns',
+    //         'sortOrder',
+    //         'searchNames',
+    //         'isServerSide',
+    //         'defaultSearchKey',
+    //         'usesSoftDeletes',
+    //         'showSoftDeleted',
+    //         'showCheckboxColumn'
+    //     ));
+    // }
+
+
+        public function index(Request $request)
     {
         // GET THE SLUG, ex. 'posts', 'pages', etc.
         $slug = $this->getSlug($request);
@@ -57,9 +313,9 @@ class RolesController extends VoyagerBaseController
         if (strlen($dataType->model_name) != 0) {
             $model = app($dataType->model_name);
 
-            $query = $model::select($dataType->name . '.*');
+            $query = $model::select($dataType->name.'.*');
 
-            if ($dataType->scope && $dataType->scope != '' && method_exists($model, 'scope' . ucfirst($dataType->scope))) {
+            if ($dataType->scope && $dataType->scope != '' && method_exists($model, 'scope'.ucfirst($dataType->scope))) {
                 $query->{$dataType->scope}();
             }
 
@@ -78,9 +334,9 @@ class RolesController extends VoyagerBaseController
 
             if ($search->value != '' && $search->key && $search->filter) {
                 $search_filter = ($search->filter == 'equals') ? '=' : 'LIKE';
-                $search_value = ($search->filter == 'equals') ? $search->value : '%' . $search->value . '%';
+                $search_value = ($search->filter == 'equals') ? $search->value : '%'.$search->value.'%';
 
-                $searchField = $dataType->name . '.' . $search->key;
+                $searchField = $dataType->name.'.'.$search->key;
                 if ($row = $this->findSearchableRelationshipRow($dataType->rows->where('type', 'relationship'), $search->key)) {
                     $query->whereIn(
                         $searchField,
@@ -98,12 +354,12 @@ class RolesController extends VoyagerBaseController
                 $querySortOrder = (!empty($sortOrder)) ? $sortOrder : 'desc';
                 if (!empty($row)) {
                     $query->select([
-                        $dataType->name . '.*',
-                        'joined.' . $row->details->label . ' as ' . $orderBy,
+                        $dataType->name.'.*',
+                        'joined.'.$row->details->label.' as '.$orderBy,
                     ])->leftJoin(
-                        $row->details->table . ' as joined',
-                        $dataType->name . '.' . $row->details->column,
-                        'joined.' . $row->details->key
+                        $row->details->table.' as joined',
+                        $dataType->name.'.'.$row->details->column,
+                        'joined.'.$row->details->key
                     );
                 }
 
@@ -119,26 +375,11 @@ class RolesController extends VoyagerBaseController
 
             // Replace relationships' keys for labels and create READ links if a slug is provided.
             $dataTypeContent = $this->resolveRelations($dataTypeContent, $dataType);
-
-            //using API for fetching user data
-            $response = Http::get("http://localhost:8001/api/roles");
-            $responseData = $response->json();
-
-
-            $dataTypeContent = collect($responseData)->map(function ($item) use ($model) {
-                $instance = $model->newInstance();
-                $instance->setRawAttributes((array) $item, true); // ← fill with $item data
-                $instance->exists = true;                          // ← mark as existing DB record
-                return $instance;
-            });
-            // dd($dataTypeContent);
-
         } else {
             // If Model doesn't exist, get data from table name
             $dataTypeContent = call_user_func([DB::table($dataType->name), $getter]);
             $model = false;
         }
-
 
         // Check if BREAD is Translatable
         $isModelTranslatable = is_bread_translatable($model);
@@ -153,26 +394,10 @@ class RolesController extends VoyagerBaseController
         $defaultSearchKey = $dataType->default_search_key ?? null;
 
         // Actions
-        // $actions = [];
-        // if (!empty($dataTypeContent->first())) {
-        //     foreach (Voyager::actions() as $action) {
-        //         $action = new $action($dataType, $dataTypeContent->first());
-
-        //         if ($action->shouldActionDisplayOnDataType()) {
-        //             $actions[] = $action;
-        //         }
-        //     }
-        // }
-
         $actions = [];
-        if (!empty($dataTypeContent)) {
+        if (!empty($dataTypeContent->first())) {
             foreach (Voyager::actions() as $action) {
-                // Only include the Edit action
-                if (!str_ends_with($action, 'EditAction')) {
-                    continue;
-                }
-
-                $action = new $action($dataType, $dataTypeContent);
+                $action = new $action($dataType, $dataTypeContent->first());
 
                 if ($action->shouldActionDisplayOnDataType()) {
                     $actions[] = $action;
@@ -201,14 +426,31 @@ class RolesController extends VoyagerBaseController
 
         // Define list of columns that can be sorted server side
         $sortableColumns = $this->getSortableColumns($dataType->browseRows);
-        $showCheckboxColumn = false;
+
         $view = 'voyager::bread.browse';
 
         if (view()->exists("voyager::$slug.browse")) {
             $view = "voyager::$slug.browse";
         }
 
-        $showCheckboxColumn = false;
+    //    return compact(
+    //         'actions',
+    //         'dataType',
+    //         'dataTypeContent',
+    //         'isModelTranslatable',
+    //         'search',
+    //         'orderBy',
+    //         'orderColumn',
+    //         'sortableColumns',
+    //         'sortOrder',
+    //         'searchNames',
+    //         'isServerSide',
+    //         'defaultSearchKey',
+    //         'usesSoftDeletes',
+    //         'showSoftDeleted',
+    //         'showCheckboxColumn'
+    //     );
+
         return Voyager::view($view, compact(
             'actions',
             'dataType',
@@ -227,7 +469,6 @@ class RolesController extends VoyagerBaseController
             'showCheckboxColumn'
         ));
     }
-
     //***************************************
     //                _____
     //               |  __ \
@@ -322,14 +563,6 @@ class RolesController extends VoyagerBaseController
                 $query = $query->{$dataType->scope}();
             }
             $dataTypeContent = call_user_func([$query, 'findOrFail'], $id);
-
-             $response = Http::get("http://localhost:8001/api/roles/$id");
-            return $responseData = $response->json();
-
-            $dataTypeContent = $model->newInstance();
-            $dataTypeContent->setRawAttributes($responseData, true);
-            $dataTypeContent->exists = true;
-
         } else {
             // If Model doest exist, get data from table name
             $dataTypeContent = DB::table($dataType->name)->where('id', $id)->first();
@@ -395,6 +628,9 @@ class RolesController extends VoyagerBaseController
         $original_data = clone($data);
 
         $this->insertUpdateData($request, $slug, $dataType->editRows, $data);
+
+        // Ensure permission_role pivot updates (role ↔ permissions)
+        $this->syncPermissionsIfPresent($request, $data);
 
         // Delete Images
         $this->deleteBreadImages($original_data, $to_remove);
@@ -480,6 +716,9 @@ class RolesController extends VoyagerBaseController
         // Validate fields with ajax
         $val = $this->validateBread($request->all(), $dataType->addRows)->validate();
         $data = $this->insertUpdateData($request, $slug, $dataType->addRows, new $dataType->model_name());
+
+        // Ensure permission_role pivot inserts (role ↔ permissions)
+        $this->syncPermissionsIfPresent($request, $data);
 
         event(new BreadDataAdded($dataType, $data));
 

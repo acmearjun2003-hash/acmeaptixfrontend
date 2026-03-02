@@ -42,150 +42,78 @@
 @if(!$dataType->server_side && config('dashboard.data_tables.responsive'))
     <link rel="stylesheet" href="{{ voyager_asset('lib/css/responsive.dataTables.min.css') }}">
 @endif
-    <style>
-        /* ── Filter bar ── */
-        #multi-filter-bar {
-            display: flex;
-            flex-wrap: wrap;
-            align-items: flex-end;
-            gap: 10px;
-            padding: 12px 14px;
-            margin-bottom: 14px;
-            background: #f9f9f9;
-            border: 1px solid #e8e8e8;
-            border-radius: 6px;
-        }
-
-        .mf-group {
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-            flex: 1 1 130px;
-            min-width: 120px;
-            max-width: 210px;
-        }
-
-        .mf-group label {
-            font-size: 10px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: .9px;
-            color: #999;
-            margin: 0;
-            white-space: nowrap;
-        }
-
-        .fil-control {
-            height: 34px;
-            padding: 4px 8px;
-            font-size: 13px;
-            border: 1px solid #d0d0d0;
-            border-radius: 4px;
-            background: #fff;
-            outline: none;
-            transition: border-color .15s, box-shadow .15s;
-            width: 100%;
-            box-sizing: border-box;
-        }
-
-        .fil-control:focus {
-            border-color: #5897fb;
-            box-shadow: 0 0 0 2px rgba(88, 151, 251, .18);
-        }
-
-        .fil-control.filter-active {
-            border-color: #5897fb;
-            background: #f0f5ff;
-        }
-
-        .mf-actions {
-            display: flex;
-            flex-direction: column;
-            align-items: flex-end;
-            gap: 4px;
-            justify-content: flex-end;
-            flex-shrink: 0;
-            min-width: 120px;
-        }
-
-        #btn-clear-filters {
-            height: 34px;
-            padding: 0 14px;
-            font-size: 12px;
-            font-weight: 600;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            background: #fff;
-            cursor: pointer;
-            color: #555;
-            white-space: nowrap;
-            transition: background .15s, border-color .15s;
-        }
-
-        #btn-clear-filters:hover {
-            background: #f0f0f0;
-            border-color: #aaa;
-        }
-
-            /* #filter-count {
-            font-size: 11px;
-            color: #888;
-            text-align: right;
-            min-height: 15px;
-            white-space: nowrap;
-        } */
-    </style>
 @stop
-
 
 @section('content')
     <div class="page-content browse container-fluid">
         @include('voyager::alerts')
 
-        {{-- Multi-filter bar (Role / Post / Qualification / Aptiscore) --}}
-        <div id="multi-filter-bar">
-            <div class="mf-group">
-                <label for="mf_role">Role</label>
-                <select id="mf_role" class="fil-control">
-                    <option value="">All roles</option>
-                    @foreach($rolesDropdown as $name => $id)
-                        <option value="{{ $id }}">{{ $name }}</option>
-                    @endforeach
-                </select>
+        {{-- Multi filters --}}
+        <form id="user-filters" method="GET" action="{{ url()->current() }}">
+            <div class="row">
+                <div class="col-md-3">
+                    <div class="form-group">
+                        <label for="mf_role">Role</label>
+                        <select id="mf_role" name="role_id" class="form-control">
+                            <option value="">All roles</option>
+                            @foreach($rolesDropdown as $name => $id)
+                                <option value="{{ $id }}" @if((string)$id === (string)request('role_id')) selected @endif>{{ $name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="form-group">
+                        <label for="mf_post">Post</label>
+                        <select id="mf_post" name="post" class="form-control">
+                            <option value="">All posts</option>
+                            @foreach($postsDropdown as $name => $id)
+                                <option value="{{ $id }}" @if((string)$id === (string)request('post')) selected @endif>{{ $name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="form-group">
+                        <label for="mf_quali">Qualification</label>
+                        <select id="mf_quali" name="highestquali" class="form-control">
+                            <option value="">All qualifications</option>
+                            <option value="SSC" @if(request('highestquali') === 'SSC') selected @endif>SSC</option>
+                            <option value="HSC" @if(request('highestquali') === 'HSC') selected @endif>HSC</option>
+                            <option value="Diploma" @if(request('highestquali') === 'Diploma') selected @endif>Diploma</option>
+                            <option value="Degree" @if(request('highestquali') === 'Degree') selected @endif>Degree</option>
+                            <option value="MasterDegree" @if(request('highestquali') === 'MasterDegree') selected @endif>Master Degree</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="form-group">
+                        <label for="mf_apti_sort">Aptiscore</label>
+                        <select id="mf_apti_sort" name="aptiscore_sort" class="form-control">
+                            <option value="">No sort</option>
+                            <option value="desc" @if(request('aptiscore_sort') === 'desc') selected @endif>&#9660;&nbsp; Highest first</option>
+                            <option value="asc" @if(request('aptiscore_sort') === 'asc') selected @endif>&#9650;&nbsp; Lowest first</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-1">
+                    <div class="form-group">
+                        <label>&nbsp;</label>
+                        <button type="button" id="btn-clear-filters" class="btn btn-default btn-block">Clear</button>
+                    </div>
+                </div>
             </div>
-            <div class="mf-group">
-                <label for="mf_post">Post</label>
-                <select id="mf_post" class="fil-control">
-                    <option value="">All posts</option>
-                    @foreach($postsDropdown as $name => $id)
-                        <option value="{{ $id }}">{{ $name }}</option>
-                    @endforeach
-                </select>
-            </div>
-            <div class="mf-group">
-                <label for="mf_quali">Qualification</label>
-                <select id="mf_quali" class="fil-control">
-                    <option value="">All qualifications</option>
-                    <option value="SSC">SSC</option>
-                    <option value="HSC">HSC</option>
-                    <option value="Diploma">Diploma</option>
-                    <option value="Degree">Degree</option>
-                    <option value="MasterDegree">Master Degree</option>
-                </select>
-            </div>
-            <div class="mf-group">
-                <label for="mf_apti_sort">Aptiscore</label>
-                <select id="mf_apti_sort" class="fil-control">
-                    <option value="">No sort</option>
-                    <option value="desc">&#9660;&nbsp; Highest first</option>
-                    <option value="asc">&#9650;&nbsp; Lowest first</option>
-                </select>
-            </div>
-            <div class="mf-actions">
-                <button type="button" id="btn-clear-filters">&#x2715;&nbsp;Clear all</button>
-                {{--<span id="filter-count"></span>--}}
-            </div>
-        </div>
+
+            {{-- Preserve existing search / sort / soft-delete params when applying filters --}}
+            <input type="hidden" name="s" value="{{ request('s') }}">
+            <input type="hidden" name="key" value="{{ request('key') }}">
+            <input type="hidden" name="filter" value="{{ request('filter') }}">
+            <input type="hidden" name="order_by" value="{{ $orderBy }}">
+            <input type="hidden" name="sort_order" value="{{ $sortOrder }}">
+            @if($showSoftDeleted)
+                <input type="hidden" name="showSoftDeleted" value="1">
+            @endif
+        </form>
 
         <div class="row">
             <div class="col-md-12">
@@ -253,165 +181,7 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    @foreach($dataTypeContent as $data)
-                                    <tr
-                                        data-role-id="{{ $data->role_id ?? '' }}"
-                                        data-post-id="{{ $data->post ?? '' }}"
-                                        data-highestquali="{{ $data->highestquali ?? '' }}"
-                                        data-aptiscore="{{ $data->aptiscore ?? '' }}"
-                                    >
-                                        @if($showCheckboxColumn)
-                                            <td>
-                                                <input type="checkbox" name="row_id" id="checkbox_{{ $data->getKey() }}" value="{{ $data->getKey() }}">
-                                            </td>
-                                        @endif
-                                        @foreach($dataType->browseRows as $row)
-                                            @php
-                                            if ($data->{$row->field.'_browse'}) {
-                                                $data->{$row->field} = $data->{$row->field.'_browse'};
-                                            }
-                                            @endphp
-                                            <td>
-                                                @if (isset($row->details->view))
-                                                    @include($row->details->view, ['row' => $row, 'dataType' => $dataType, 'dataTypeContent' => $dataTypeContent, 'content' => $data->{$row->field}, 'action' => 'browse', 'view' => 'browse', 'options' => $row->details])
-                                                @elseif($row->type == 'image')
-                                                    <img src="@if( !filter_var($data->{$row->field}, FILTER_VALIDATE_URL)){{ Voyager::image( $data->{$row->field} ) }}@else{{ $data->{$row->field} }}@endif" style="width:100px">
-                                                @elseif($row->type == 'relationship')
-                                                    @include('voyager::formfields.relationship', ['view' => 'browse','options' => $row->details])
-                                                @elseif($row->type == 'select_multiple')
-                                                    @if(property_exists($row->details, 'relationship'))
-
-                                                        @foreach($data->{$row->field} as $item)
-                                                            {{ $item->{$row->field} }}
-                                                        @endforeach
-
-                                                    @elseif(property_exists($row->details, 'options'))
-                                                        @if (!empty(json_decode($data->{$row->field})))
-                                                            @foreach(json_decode($data->{$row->field}) as $item)
-                                                                @if (@$row->details->options->{$item})
-                                                                    {{ $row->details->options->{$item} . (!$loop->last ? ', ' : '') }}
-                                                                @endif
-                                                            @endforeach
-                                                        @else
-                                                            {{ __('voyager::generic.none') }}
-                                                        @endif
-                                                    @endif
-
-                                                    @elseif($row->type == 'multiple_checkbox' && property_exists($row->details, 'options'))
-                                                        @if (@count(json_decode($data->{$row->field}, true)) > 0)
-                                                            @foreach(json_decode($data->{$row->field}) as $item)
-                                                                @if (@$row->details->options->{$item})
-                                                                    {{ $row->details->options->{$item} . (!$loop->last ? ', ' : '') }}
-                                                                @endif
-                                                            @endforeach
-                                                        @else
-                                                            {{ __('voyager::generic.none') }}
-                                                        @endif
-
-                                                @elseif(($row->type == 'select_dropdown' || $row->type == 'radio_btn') && property_exists($row->details, 'options'))
-
-                                                    {!! $row->details->options->{$data->{$row->field}} ?? '' !!}
-
-                                                @elseif($row->type == 'date' || $row->type == 'timestamp')
-                                                    @if ( property_exists($row->details, 'format') && !is_null($data->{$row->field}) )
-                                                        {{ \Carbon\Carbon::parse($data->{$row->field})->formatLocalized($row->details->format) }}
-                                                    @else
-                                                        {{ $data->{$row->field} }}
-                                                    @endif
-                                                @elseif($row->type == 'checkbox')
-                                                    @if(property_exists($row->details, 'on') && property_exists($row->details, 'off'))
-                                                        @if($data->{$row->field})
-                                                            <span class="label label-info">{{ $row->details->on }}</span>
-                                                        @else
-                                                            <span class="label label-primary">{{ $row->details->off }}</span>
-                                                        @endif
-                                                    @else
-                                                    {{ $data->{$row->field} }}
-                                                    @endif
-                                                @elseif($row->type == 'color')
-                                                    <span class="badge badge-lg" style="background-color: {{ $data->{$row->field} }}">{{ $data->{$row->field} }}</span>
-                                                @elseif($row->type == 'text')
-                                                    @include('voyager::multilingual.input-hidden-bread-browse')
-                                                    <div>{{ mb_strlen( $data->{$row->field} ) > 200 ? mb_substr($data->{$row->field}, 0, 200) . ' ...' : $data->{$row->field} }}</div>
-                                                @elseif($row->type == 'text_area')
-                                                    @include('voyager::multilingual.input-hidden-bread-browse')
-                                                    <div>{{ mb_strlen( $data->{$row->field} ) > 200 ? mb_substr($data->{$row->field}, 0, 200) . ' ...' : $data->{$row->field} }}</div>
-                                                @elseif($row->type == 'file' && !empty($data->{$row->field}) )
-                                                    @include('voyager::multilingual.input-hidden-bread-browse')
-                                                    @if(json_decode($data->{$row->field}) !== null)
-                                                        @foreach(json_decode($data->{$row->field}) as $file)
-                                                            <a href="{{ Storage::disk(config('voyager.storage.disk'))->url($file->download_link) ?: '' }}" target="_blank">
-                                                                {{ $file->original_name ?: '' }}
-                                                            </a>
-                                                            <br/>
-                                                        @endforeach
-                                                    @else
-                                                        <a href="{{ Storage::disk(config('voyager.storage.disk'))->url($data->{$row->field}) }}" target="_blank">
-                                                            Download
-                                                        </a>
-                                                    @endif
-                                                @elseif($row->type == 'rich_text_box')
-                                                    @include('voyager::multilingual.input-hidden-bread-browse')
-                                                    <div>{{ mb_strlen( strip_tags($data->{$row->field}, '<b><i><u>') ) > 200 ? mb_substr(strip_tags($data->{$row->field}, '<b><i><u>'), 0, 200) . ' ...' : strip_tags($data->{$row->field}, '<b><i><u>') }}</div>
-                                                @elseif($row->type == 'coordinates')
-                                                    @include('voyager::partials.coordinates-static-image')
-                                                @elseif($row->type == 'multiple_images')
-                                                    @php $images = json_decode($data->{$row->field}); @endphp
-                                                    @if($images)
-                                                        @php $images = array_slice($images, 0, 3); @endphp
-                                                        @foreach($images as $image)
-                                                            <img src="@if( !filter_var($image, FILTER_VALIDATE_URL)){{ Voyager::image( $image ) }}@else{{ $image }}@endif" style="width:50px">
-                                                        @endforeach
-                                                    @endif
-                                                @elseif($row->type == 'media_picker')
-                                                    @php
-                                                        if (is_array($data->{$row->field})) {
-                                                            $files = $data->{$row->field};
-                                                        } else {
-                                                            $files = json_decode($data->{$row->field});
-                                                        }
-                                                    @endphp
-                                                    @if ($files)
-                                                        @if (property_exists($row->details, 'show_as_images') && $row->details->show_as_images)
-                                                            @foreach (array_slice($files, 0, 3) as $file)
-                                                            <img src="@if( !filter_var($file, FILTER_VALIDATE_URL)){{ Voyager::image( $file ) }}@else{{ $file }}@endif" style="width:50px">
-                                                            @endforeach
-                                                        @else
-                                                            <ul>
-                                                            @foreach (array_slice($files, 0, 3) as $file)
-                                                                <li>{{ $file }}</li>
-                                                            @endforeach
-                                                            </ul>
-                                                        @endif
-                                                        @if (count($files) > 3)
-                                                            {{ __('voyager::media.files_more', ['count' => (count($files) - 3)]) }}
-                                                        @endif
-                                                    @elseif (is_array($files) && count($files) == 0)
-                                                        {{ trans_choice('voyager::media.files', 0) }}
-                                                    @elseif ($data->{$row->field} != '')
-                                                        @if (property_exists($row->details, 'show_as_images') && $row->details->show_as_images)
-                                                            <img src="@if( !filter_var($data->{$row->field}, FILTER_VALIDATE_URL)){{ Voyager::image( $data->{$row->field} ) }}@else{{ $data->{$row->field} }}@endif" style="width:50px">
-                                                        @else
-                                                            {{ $data->{$row->field} }}
-                                                        @endif
-                                                    @else
-                                                        {{ trans_choice('voyager::media.files', 0) }}
-                                                    @endif
-                                                @else
-                                                    @include('voyager::multilingual.input-hidden-bread-browse')
-                                                    <span>{{ $data->{$row->field} }}</span>
-                                                @endif
-                                            </td>
-                                        @endforeach
-                                        <td class="no-sort no-click bread-actions">
-                                            @foreach($actions as $action)
-                                                @if (!method_exists($action, 'massAction'))
-                                                    @include('voyager::bread.partials.actions', ['action' => $action])
-                                                @endif
-                                            @endforeach
-                                        </td>
-                                    </tr>
-                                    @endforeach
+                                    @include('voyager::users.partials.tbody')
                                 </tbody>
                             </table>
                         </div>
@@ -468,192 +238,174 @@
     @if(!$dataType->server_side && config('dashboard.data_tables.responsive'))
         <script src="{{ voyager_asset('lib/js/dataTables.responsive.min.js') }}"></script>
     @endif
+    @php
+        $softDeleteBaseParams = [
+            's' => $search->value,
+            'filter' => $search->filter,
+            'key' => $search->key,
+            'order_by' => $orderBy,
+            'sort_order' => $sortOrder,
+        ];
+
+        $dtOptions = array_merge([
+            "order" => $orderColumn,
+            "language" => __('voyager::datatable'),
+            "columnDefs" => [
+                ['targets' => 'dt-not-orderable', 'searchable' =>  false, 'orderable' => false],
+            ],
+        ], config('voyager.dashboard.data_tables', []));
+    @endphp
+    <div
+        id="users-browse-config"
+        data-server-side="{{ $dataType->server_side ? 1 : 0 }}"
+        data-model-translatable="{{ $isModelTranslatable ? 1 : 0 }}"
+        data-uses-soft-deletes="{{ $usesSoftDeletes ? 1 : 0 }}"
+        data-delete-url-template="{{ route('voyager.'.$dataType->slug.'.destroy', '__id') }}"
+        data-soft-delete-on-url="{{ route('voyager.'.$dataType->slug.'.index', array_merge($softDeleteBaseParams, ['showSoftDeleted' => 1]), true) }}"
+        data-soft-delete-off-url="{{ route('voyager.'.$dataType->slug.'.index', array_merge($softDeleteBaseParams, ['showSoftDeleted' => 0]), true) }}"
+        data-dt-options='{{ json_encode($dtOptions, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) }}'
+        style="display:none"
+    ></div>
+    
     <script>
-        $(document).ready(function () {
-            @if (!$dataType->server_side)
-                var table = $('#dataTable').DataTable({!! json_encode(
-                    array_merge([
-                        "order" => $orderColumn,
-                        "language" => __('voyager::datatable'),
-                        "columnDefs" => [
-                            ['targets' => 'dt-not-orderable', 'searchable' =>  false, 'orderable' => false],
-                        ],
-                    ],
-                    config('voyager.dashboard.data_tables', []))
-                , true) !!});
-            @else
-                $('#search-input select').select2({
-                    minimumResultsForSearch: Infinity
-                });
-            @endif
+        (function () {
+            var cfg = document.getElementById('users-browse-config');
+            if (!cfg) return;
 
-            @if ($isModelTranslatable)
-                $('.side-body').multilingual();
-                //Reinitialise the multilingual features when they change tab
-                $('#dataTable').on('draw.dt', function(){
-                    $('.side-body').data('multilingual').init();
-                })
-            @endif
-            $('.select_all').on('click', function(e) {
-                $('input[name="row_id"]').prop('checked', $(this).prop('checked')).trigger('change');
-            });
-        });
+            var isServerSide = cfg.getAttribute('data-server-side') === '1';
+            var isModelTranslatable = cfg.getAttribute('data-model-translatable') === '1';
+            var usesSoftDeletes = cfg.getAttribute('data-uses-soft-deletes') === '1';
+            var deleteUrlTemplate = cfg.getAttribute('data-delete-url-template') || '';
+            var softDeleteOnUrl = cfg.getAttribute('data-soft-delete-on-url') || '';
+            var softDeleteOffUrl = cfg.getAttribute('data-soft-delete-off-url') || '';
 
-
-        var deleteFormAction;
-        $('td').on('click', '.delete', function (e) {
-            $('#delete_form')[0].action = '{{ route('voyager.'.$dataType->slug.'.destroy', '__id') }}'.replace('__id', $(this).data('id'));
-            $('#delete_modal').modal('show');
-        });
-
-        @if($usesSoftDeletes)
-            @php
-                $params = [
-                    's' => $search->value,
-                    'filter' => $search->filter,
-                    'key' => $search->key,
-                    'order_by' => $orderBy,
-                    'sort_order' => $sortOrder,
-                ];
-            @endphp
-            $(function() {
-                $('#show_soft_deletes').change(function() {
-                    if ($(this).prop('checked')) {
-                        $('#dataTable').before('<a id="redir" href="{{ (route('voyager.'.$dataType->slug.'.index', array_merge($params, ['showSoftDeleted' => 1]), true)) }}"></a>');
-                    }else{
-                        $('#dataTable').before('<a id="redir" href="{{ (route('voyager.'.$dataType->slug.'.index', array_merge($params, ['showSoftDeleted' => 0]), true)) }}"></a>');
-                    }
-
-                    $('#redir')[0].click();
-                })
-            })
-        @endif
-        $('input[name="row_id"]').on('change', function () {
-            var ids = [];
-            $('input[name="row_id"]').each(function() {
-                if ($(this).is(':checked')) {
-                    ids.push($(this).val());
-                }
-            });
-            $('.selected_ids').val(ids);
-        });
-
-
-        // ── Multi-filter wiring (works with and without DataTables) ──
-        function initMultiFilters() {
-            var $role = $('#mf_role');
-            var $post = $('#mf_post');
-            var $quali = $('#mf_quali');
-            var $aptiSort = $('#mf_apti_sort');
-            var $count = $('#filter-count');
-            var $rows = $('#dataTable tbody tr');
+            var dtOptionsRaw = cfg.getAttribute('data-dt-options') || '';
+            var dtOptions = null;
+            try { dtOptions = JSON.parse(dtOptionsRaw); } catch (e) { dtOptions = null; }
 
             function hasDataTable() {
-                return $.fn.DataTable && $.fn.dataTable.isDataTable('#dataTable');
+                return $.fn.DataTable && $.fn.dataTable && $.fn.dataTable.isDataTable('#dataTable');
             }
 
-            // GET ALL BODY ROWS ──────────────────────────────────────────────────────
-            function getDataTable() {
-                return hasDataTable() ? $('#dataTable').DataTable() : null;
-            }
-
-            // FIND COLUMN INDEX BY HEADER KEYWORD ───────────────────────────────────
-             function findColumnIndex(substr) {
-                var idx = -1;
-                $('#dataTable thead th').each(function (i) {
-                    var txt = ($(this).text() || '').toLowerCase();
-                    if (idx === -1 && txt.indexOf(substr) !== -1) {
-                        idx = i;
-                    }
-                });
-                return idx;
-            }
-
-
-            function updateFilterBadges() {
-                [$role, $post, $quali, $aptiSort].forEach(function ($el) {
-                    if ($el.val()) {
-                        $el.addClass('filter-active');
-                    } else {
-                        $el.removeClass('filter-active');
-                    }
-                });
-            }
-
-           
-
-            // Cache column indexes once on load (headers don't change)
-            var roleColIdx = findColumnIndex('role');
-            var postColIdx = findColumnIndex('post');
-            var qualiColIdx = findColumnIndex('quali');
-            var aptiColIdx = findColumnIndex('apti');
-            
-
-
-
-            function applyFilters() {
-                updateFilterBadges();
-                var dt = getDataTable();
-                var roleVal = $role.val();
-                var postVal = $post.val();
-                var qualiVal = $quali.val();
-                var aptiVal = $aptiSort.val();
-
-                if (dt) {
-                    if (roleColIdx !== -1) {
-                        var roleText = $role.find('option:selected').text();
-                        dt.column(roleColIdx).search(roleVal ? '^' + $.fn.dataTable.util.escapeRegex(roleText) + '$' : '', true, false);
-                    }
-                    if (postColIdx !== -1) {
-                        var postText = $post.find('option:selected').text();
-                        dt.column(postColIdx).search(postVal ? '^' + $.fn.dataTable.util.escapeRegex(postText) + '$' : '', true, false);
-                    }
-                    if (qualiColIdx !== -1) {
-                        var qualiText = $quali.find('option:selected').text();
-                        dt.column(qualiColIdx).search(qualiVal ? '^' + $.fn.dataTable.util.escapeRegex(qualiText) + '$' : '', true, false);
-                    }
-
-                    if (aptiColIdx !== -1 && aptiVal) {
-                        dt.order([aptiColIdx, aptiVal]);
-                    }
-
-                    dt.draw();
-
-                    var info = dt.page.info ? dt.page.info() : null;
-                    if (info) {
-                        $count.text(info.recordsDisplay + ' record(s) match filters');
-                    } else {
-                        $count.text('');
-                    }
-                    return;
+            function destroyDataTableIfAny() {
+                if (hasDataTable()) {
+                    $('#dataTable').DataTable().destroy();
                 }
             }
 
-            $role.on('change', applyFilters);
-            $post.on('change', applyFilters);
-            $quali.on('change', applyFilters);
-            $aptiSort.on('change', applyFilters);
+            function initDataTableIfNeeded() {
+                if (isServerSide) return;
+                if (!dtOptions || !$.fn.DataTable) return;
+                $('#dataTable').DataTable(dtOptions);
+            }
 
-            $('#btn-clear-filters').on('click', function () {
-                $role.val('');
-                $post.val('');
-                $quali.val('');
-                $aptiSort.val('');
-                updateFilterBadges();
+            function initMultilingualIfNeeded() {
+                if (!isModelTranslatable) return;
+                if (!$('.side-body').data('multilingual')) return;
+                $('.side-body').data('multilingual').init();
+            }
 
-                var dt = getDataTable();
-                if (dt) {
-                    if (roleColIdx !== -1) dt.column(roleColIdx).search('');
-                    if (postColIdx !== -1) dt.column(postColIdx).search('');
-                    if (qualiColIdx !== -1) dt.column(qualiColIdx).search('');
-                    dt.order([]).search('').draw();
+            function applyColorBadges() {
+                $('.js-color-badge').each(function () {
+                    var c = $(this).data('color');
+                    if (c) {
+                        $(this).css('background-color', c);
+                    }
+                });
+            }
+
+            function updateBrowserUrlFromForm($form) {
+                var browserParams = $form.serializeArray().filter(function (p) {
+                    return p.name !== 'ajax';
+                });
+                var qs = $.param(browserParams);
+                var url = window.location.pathname + (qs ? ('?' + qs) : '');
+                window.history.replaceState(null, '', url);
+            }
+
+            function refreshTableFromFilters() {
+                var $form = $('#user-filters');
+                if (!$form.length) return;
+
+                var requestParams = $form.serializeArray();
+                requestParams.push({ name: 'ajax', value: '1' });
+                updateBrowserUrlFromForm($form);
+
+                destroyDataTableIfAny();
+                $('#dataTable tbody').html('<tr><td colspan="100%">Loading...</td></tr>');
+
+                $.ajax({
+                    url: window.location.pathname,
+                    method: 'GET',
+                    data: $.param(requestParams),
+                    dataType: 'json',
+                }).done(function (resp) {
+                    if (resp && resp.tbody !== undefined) {
+                        $('#dataTable tbody').html(resp.tbody);
+                    }
+                    initDataTableIfNeeded();
+                    initMultilingualIfNeeded();
+                    applyColorBadges();
+                }).fail(function () {
+                    $('#dataTable tbody').html('<tr><td colspan="100%">Failed to load data.</td></tr>');
+                });
+            }
+
+            $(document).ready(function () {
+                if (!isServerSide) {
+                    initDataTableIfNeeded();
                 } else {
-                    $rows.show();
+                    $('#search-input select').select2({
+                        minimumResultsForSearch: Infinity
+                    });
                 }
-                $count.text('');
-            });
-        }
 
-        initMultiFilters();
+                if (isModelTranslatable) {
+                    $('.side-body').multilingual();
+                    $('#dataTable').on('draw.dt', function(){
+                        initMultilingualIfNeeded();
+                    });
+                }
+
+                applyColorBadges();
+
+                $('.select_all').on('click', function(e) {
+                    $('input[name="row_id"]').prop('checked', $(this).prop('checked')).trigger('change');
+                });
+
+                $('#mf_role, #mf_post, #mf_quali, #mf_apti_sort').on('change', refreshTableFromFilters);
+
+                $('#btn-clear-filters').on('click', function () {
+                    $('#mf_role').val('');
+                    $('#mf_post').val('');
+                    $('#mf_quali').val('');
+                    $('#mf_apti_sort').val('');
+                    refreshTableFromFilters();
+                });
+
+                if (usesSoftDeletes) {
+                    $('#show_soft_deletes').on('change', function() {
+                        window.location.href = $(this).prop('checked') ? softDeleteOnUrl : softDeleteOffUrl;
+                    });
+                }
+            });
+
+            $(document).on('click', '.delete', function () {
+                if (deleteUrlTemplate) {
+                    $('#delete_form')[0].action = deleteUrlTemplate.replace('__id', $(this).data('id'));
+                }
+                $('#delete_modal').modal('show');
+            });
+
+            $(document).on('change', 'input[name="row_id"]', function () {
+                var ids = [];
+                $('input[name="row_id"]').each(function() {
+                    if ($(this).is(':checked')) {
+                        ids.push($(this).val());
+                    }
+                });
+                $('.selected_ids').val(ids);
+            });
+        })();
     </script>
 @stop

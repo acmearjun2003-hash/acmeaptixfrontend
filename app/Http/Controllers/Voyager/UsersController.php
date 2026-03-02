@@ -269,26 +269,21 @@ class UsersController extends VoyagerBaseController
         if (strlen($dataType->model_name) != 0) {
             $model = app($dataType->model_name);
 
-
             $query = $model::select($dataType->name . '.*');
-
 
             if ($dataType->scope && $dataType->scope != '' && method_exists($model, 'scope' . ucfirst($dataType->scope))) {
                 $query->{$dataType->scope}();
             }
 
-
             // Use withTrashed() if model uses SoftDeletes and if toggle is selected
             if ($model && in_array(SoftDeletes::class, class_uses_recursive($model)) && Auth::user()->can('delete', app($dataType->model_name))) {
                 $usesSoftDeletes = true;
-
 
                 if ($request->get('showSoftDeleted')) {
                     $showSoftDeleted = true;
                     $query = $query->withTrashed();
                 }
             }
-
 
             // If a column has a relationship associated with it, we do not want to show that field
             $this->removeRelationshipField($dataType, 'browse');
@@ -347,7 +342,7 @@ class UsersController extends VoyagerBaseController
             $response = Http::get("http://localhost:8001/api/users");
             $responseData = $response->json();
 
-            $dataTypeContent = collect($responseData)->map(function ($item) use ($model) {
+             $dataTypeContent = collect($responseData)->map(function ($item) use ($model) {
                 $instance = $model->newInstance();
                 $instance->setRawAttributes((array) $item, true); // ← fill with $item data
                 $instance->exists = true;                          // ← mark as existing DB record
@@ -355,27 +350,34 @@ class UsersController extends VoyagerBaseController
             });
             // dd($dataTypeContent);
 
+
         } else {
             // If Model doesn't exist, get data from table name
             $dataTypeContent = call_user_func([DB::table($dataType->name), $getter]);
             $model = false;
         }
 
+
         //for dropdown
-        $rolesDropdown = Http::get('http://localhost:8001/api/roles/dropdown')->json();
+      $rolesDropdown = Http::get('http://localhost:8001/api/roles/dropdown')->json();
         $postsDropdown = Http::get('http://localhost:8001/api/posts/dropdown')->json();
+
 
         // Check if BREAD is Translatable
         $isModelTranslatable = is_bread_translatable($model);
 
+
         // Eagerload Relations
         $this->eagerLoadRelations($dataTypeContent, $dataType, 'browse', $isModelTranslatable);
+
 
         // Check if server side pagination is enabled
         $isServerSide = isset($dataType->server_side) && $dataType->server_side;
 
+
         // Check if a default search key is set
         $defaultSearchKey = $dataType->default_search_key ?? null;
+
 
         // Actions
         // $actions = [];
@@ -389,6 +391,7 @@ class UsersController extends VoyagerBaseController
         //         }
         //     }
         // }
+
 
         $actions = [];
         if (!empty($dataTypeContent)) {
@@ -408,17 +411,19 @@ class UsersController extends VoyagerBaseController
             }
         }
 
+
         // Define showCheckboxColumn
         $showCheckboxColumn = false;
-        // if (Auth::user()->can('delete', app($dataType->model_name))) {
-        //     $showCheckboxColumn = true;
-        // } else {
-        //     foreach ($actions as $action) {
-        //         if (method_exists($action, 'massAction')) {
-        //             $showCheckboxColumn = true;
-        //         }
-        //     }
-        // }
+        if (Auth::user()->can('delete', app($dataType->model_name))) {
+            $showCheckboxColumn = true;
+        } else {
+            foreach ($actions as $action) {
+                if (method_exists($action, 'massAction')) {
+                    $showCheckboxColumn = true;
+                }
+            }
+        }
+
 
         // Define orderColumn
         $orderColumn = [];
@@ -427,14 +432,19 @@ class UsersController extends VoyagerBaseController
             $orderColumn = [[$index, $sortOrder ?? 'desc']];
         }
 
+
         // Define list of columns that can be sorted server side
         $sortableColumns = $this->getSortableColumns($dataType->browseRows);
+        // $showCheckboxColumn = false;
         $view = 'voyager::bread.browse';
+
 
         if (view()->exists("voyager::$slug.browse")) {
             $view = "voyager::$slug.browse";
         }
 
+
+        // $showCheckboxColumn = false;
         return Voyager::view($view, compact(
             'actions',
             'dataType',
@@ -476,7 +486,9 @@ class UsersController extends VoyagerBaseController
     {
         $slug = $this->getSlug($request);
 
+
         $dataType = Voyager::model('DataType')->where('slug', '=', $slug)->first();
+
 
         $isSoftDeleted = false;
 
@@ -645,7 +657,7 @@ class UsersController extends VoyagerBaseController
         $this->authorize('edit', $data);
 
         // Validate fields with ajax
-        $val = $this->validateBread($request->all(), $dataType->editRows, $dataType->name, $id)->validate();
+        return $val = $this->validateBread($request->all(), $dataType->editRows, $dataType->name, $id)->validate();
 
 
         // Get fields with images to remove before updating and make a copy of $data
@@ -657,24 +669,9 @@ class UsersController extends VoyagerBaseController
 
 
         //use api
-        // $this->insertUpdateData($request, $slug, $dataType->editRows, $val);
+        $this->insertUpdateData($request, $slug, $dataType->editRows, $val);
 
-        $payload = $request->except(['_token', '_method']);
-        
-        $apiResponse = Http::put(
-            "http://localhost:8001/api/users/{$id}",
-            $payload
-        );
-        
-        if (! $apiResponse->successful()) {
-            return redirect()->back()->with([
-                'message'    => 'API update failed (' . $apiResponse->status() . '): ' . $apiResponse->body(),
-                'alert-type' => 'error',
-            ]);
-        }
-        
-        $apiData = $apiResponse->json();
-        
+        $response = Http::put("http://localhost:8001/api/users", $data);
 
 
         // Delete Images
